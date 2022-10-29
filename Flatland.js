@@ -31,147 +31,89 @@ Flatland = Flatland || {};
         return a < b || fe(a, b);
     };
 
-    Flatland.getDistance = function (point1, point2) {
-        return Math.sqrt((point1.x - point2.x) * (point1.x - point2.x) + (point1.y - point2.y) * (point1.y - point2.y));
+    Flatland.getDistance = function (p1, p2) {
+        return Math.hypot(p2.x - p1.x, p2.y - p1.y);
     };
 
-    // gets the m and b of y = mx + b given two points
-    // y = mx + b -> m = (y2 - y1) / (x2 - x1)
-    // y1 = mx1 + b -> b = y1 - mx1
-    Flatland.getFormula = function (point1, point2) {
-        var x1 = point1.x,
-            y1 = point1.y,
-            x2 = point2.x,
-            y2 = point2.y,
-            m = (y2 - y1) / (x2 - x1),
-            b = y1 - m * x1;
-
-        return { intercept: b, slope: m };
-    };
-
-    // given two formulas (from getFormula), returns the point
-    // at which they intersect
-    Flatland.getIntersection = function (formula1, formula2) {
-        var x,
-            y;
-
-        x = (formula2.intercept - formula1.intercept) / (formula1.slope - formula2.slope);
-        y = formula2.slope * x + formula2.intercept;
-        return new Flatland.Point({ x: x, y: y });
-    };
-
-
-    // given an x coordinate and a formula, returns the point
-    // where the formula's x = that x coordinate
-    Flatland.getIntersectionWithVertical = function (args) {
-        var formula = args.formula,
-            x = args.x,
-            y = formula.slope * x + formula.intercept;
-
-        return new Flatland.Point({ x: x, y: y });
+    Flatland.getMxPlusB = function (p1, p2) {
+        let m = (p2.y - p1.y) / (p2.x - p1.x);
+        return {
+            m: m,
+            b: p1.y - (m * p1.x)
+        };
     };
 
     Flatland.LineSegment = function (args) {
-        var that = this;
+        let that = this;
         that.start = args.start;
         that.end = args.end;
     };
 
     // draws to the given context
-    Flatland.LineSegment.prototype.draw = function (args) {
-        var that = this,
-            context = args.context;
-
-        context.beginPath();
-        context.moveTo(that.start.x, that.start.y);
-        context.lineTo(that.end.x, that.end.y);
-        context.closePath();
-        context.stroke();
-
-        return that;
+    Flatland.LineSegment.prototype.draw = function (ctx) {
+        ctx.beginPath();
+        ctx.moveTo(this.start.x, this.start.y);
+        ctx.lineTo(this.end.x, this.end.y);
+        ctx.closePath();
+        ctx.stroke();
     };
 
     // given a middle point (point), and start and end points,
     // returns true if point is between them (inclusive)
     // and false otherwise
     Flatland.betweenPoints = function (args) {
-        var point = args.point,
-            start = args.start,
-            end = args.end;
-
-        if (start.x < end.x) {
-            if (!(ltfe(point.x, end.x) && gtfe(point.x, start.x))) {
-                return false;
-            }
-        } else {
-            if (!(ltfe(point.x, start.x) && gtfe(point.x, end.x))) {
-                return false;
-            }
-        }
-
-        if (start.y < end.y) {
-            if (!(ltfe(point.y, end.y) && gtfe(point.y, start.y))) {
-                return false;
-            }
-        } else {
-            if (!(ltfe(point.y, start.y) && gtfe(point.y, end.y))) {
-                return false;
-            }
-        }
-
-        return true;
+        let px = Math.min(args.start.x, args.end.x);
+        let py = Math.min(args.start.y, args.end.y);
+        let q = args.point;
+        let rx = Math.max(args.start.x, args.end.x);
+        let ry = Math.max(args.start.y, args.end.y);
+        return ltfe(px, q.x) && ltfe(q.x, rx) && ltfe(py, q.y) && ltfe(q.y, ry);
     };
 
     // given a line
     // a point and an angle,
     // returns the point of intersection or false if there is none
     Flatland.getIntersectionWithLineSegment = function (args) {
-        var point = args.point,
-            angle = Flatland.formatAngle(args.angle),
-            start = args.line.start,
-            end = args.line.end,
-            line_formula = Flatland.getFormula(start, end),
-            point_formula,
-            intersection;
-
-        // up till here it's correct
-        point_formula = Flatland.getFormula(point, new Flatland.Point({
-            x: point.x + 10 * Math.cos(angle),
-            y: point.y + 10 * Math.sin(angle),
+        let origin = args.point;
+        let angle = Flatland.formatAngle(args.angle);
+        let start = args.line.start;
+        let end = args.line.end;
+        let segment = Flatland.getMxPlusB(start, end);
+        let ray = Flatland.getMxPlusB(origin, new Flatland.Point({
+            x: origin.x + 10 * Math.cos(angle),
+            y: origin.y + 10 * Math.sin(angle),
         }));
 
-        // special case for vertical lines
+        let intersection;
         if (start.x === end.x) {
-            intersection = Flatland.getIntersectionWithVertical({ formula: point_formula, x: start.x });
+            intersection = new Flatland.Point({ x: start.x, y: ray.m * start.x + ray.b });
         } else if (fe(angle, Math.PI / 2) || fe(angle, 3 * Math.PI / 2)) {
-            intersection = Flatland.getIntersectionWithVertical({ formula: line_formula, x: point.x });
+            intersection = new Flatland.Point({ x: origin.x, y: segment.m * origin.x + segment.b });
         } else {
-            intersection = Flatland.getIntersection(line_formula, point_formula);
+            let x = (ray.b - segment.b) / (segment.m - ray.m);
+            intersection = new Flatland.Point({ x: x, y: ray.m * x + ray.b });
         }
 
         // there will be an intersection in 2 cases:
         // 1. a real intersection
         // 2. an intersection of the shape was turned PI/2 radians around
         // we should only count the real ones
-        if (Flatland.betweenPoints({ point: intersection, start: start, end: end })) {
-
-            if (angle >= 0 && angle < Math.PI && intersection.y < point.y) { // bottom
-                return false;
-            }
-            if (angle >= Math.PI && angle < 2 * Math.PI && intersection.y > point.y) { // top
-                return false;
-            }
-            if (((angle >= 0 && angle < Math.PI / 2) || (angle >= 3 * Math.PI / 2 && angle < 2 * Math.PI)) && intersection.x < point.x) { // right
-                return false;
-            }
-            if (angle >= Math.PI / 2 && angle < 3 * Math.PI / 2 && intersection.x > point.x) { // top
-                return false;
-            }
-
-            return intersection;
+        if (!Flatland.betweenPoints({ point: intersection, start: start, end: end })) {
+            return false;
         }
-
-        return false;
+        if (angle >= 0 && angle < Math.PI && intersection.y < origin.y) { // bottom
+            return false;
+        }
+        if (angle >= Math.PI && angle < 2 * Math.PI && intersection.y > origin.y) { // top
+            return false;
+        }
+        if (((angle >= 0 && angle < Math.PI / 2) || (angle >= 3 * Math.PI / 2 && angle < 2 * Math.PI)) && intersection.x < origin.x) { // right
+            return false;
+        }
+        if (angle >= Math.PI / 2 && angle < 3 * Math.PI / 2 && intersection.x > origin.x) { // top
+            return false;
+        }
+        return intersection;
     };
 
     Flatland.Point = function (args) {
@@ -218,10 +160,9 @@ Flatland = Flatland || {};
     Flatland.Shape.prototype.getLineSegments = function () {
         var that = this,
             points = that.getPoints(),
-            lines = [],
-            ii;
+            lines = [];
 
-        for (ii = 1; ii < points.length; ii += 1) {
+        for (let ii = 1; ii < points.length; ii += 1) {
             lines.push(new Flatland.LineSegment({
                 start: points[ii - 1],
                 end: points[ii]
@@ -236,18 +177,10 @@ Flatland = Flatland || {};
     };
 
     // draw shape to the given context
-    Flatland.Shape.prototype.draw = function (args) {
-        var that = this,
-            lines = that.getLineSegments(),
-            context = args.context,
-            previous = false,
-            ii;
-
-        for (ii = 0; ii < lines.length; ii += 1) {
-            lines[ii].draw({ context: context });
+    Flatland.Shape.prototype.draw = function (cheatCtx) {
+        for (let line of this.getLineSegments()) {
+            line.draw(cheatCtx);
         }
-
-        return that;
     };
 
     // To make drawing shapes easier, the context is divided up into a grid
@@ -266,24 +199,17 @@ Flatland = Flatland || {};
     // Subclass (or whatever the prototypical version is called) of Shape,
     // a random regular polygon
     // it can have 3-8 sides and spin clockwise or counter-clockwise
-    Flatland.RandomShape = function (args) {
-        var that = this,
-            sides = Math.floor(Math.random() * 6) + 3,
-            radius = Math.random() * (1 / 3) * (args.grid.length / 2) + (1 / 3) * (args.grid.length / 2),
-            angle = Math.random() * Math.PI,
-            spin = (Math.random() * Math.PI / 10) - Math.PI / 20,
-            speed = 1;
-            //speed = Math.floor(Math.random() * 3) + 1;
-
-        that.grid = args.grid;
-        that.spin = spin;
-        that.speed = speed;
-        that.prev_grid = false; // meh
-        Flatland.Shape.apply(that, [{
-            sides: sides,
-            radius: radius,
-            center: new Flatland.Point({ x: that.grid.center.x, y: that.grid.center.y }),
-            angle: angle
+    Flatland.RandomShape = function (grid) {
+        let that = this;
+        this.grid = grid;
+        this.spin = (Math.random() * Math.PI / 10) - Math.PI / 20;
+        this.speed = 1;
+        this.prev_grid = null;
+        Flatland.Shape.apply(this, [{
+            sides: Math.floor(Math.random() * 6) + 3,
+            radius: Math.random() * (1 / 3) * (grid.length / 2) + (1 / 3) * (grid.length / 2),
+            center: new Flatland.Point(grid.center),
+            angle: Math.random() * Math.PI
         }]);
 
     };
@@ -323,72 +249,49 @@ Flatland = Flatland || {};
     // and a list of shapes floating around,
     // draws a line on the context to the closest intersection.
     // Also returns the closest intersection.
-    Flatland.getAndDrawIntersection = function (args) {
-        var point = args.point,
-            angle = args.angle,
-            shapes = args.shapes,
-            borders = args.borders,
-            context = args.context,
-            intersections = [],
-            draw = args.draw,
-            intersection,
-            min,
-            line,
-            lines,
-            ii,
-            jj;
+    Flatland.getAndDrawRay = function (args) {
+        let origin = args.origin;
+        let angle = args.angle;
+        let shapes = args.shapes;
+        let borders = args.borders;
+        let cheatCtx = args.context;
+        let result = { distance: Infinity };
+        let endpoint = null;
 
-        for (ii = 0; ii < borders.length; ii += 1) {
-            intersection = Flatland.getIntersectionWithLineSegment({
-                point: point,
+        for (let ii = 0; ii < borders.length; ii += 1) {
+            let p = Flatland.getIntersectionWithLineSegment({
+                point: origin,
                 angle: angle,
                 line: borders[ii]
             });
-            if (intersection !== false) {
-                intersections.push({
-                    intersection: intersection,
-                    distance: Flatland.getDistance(intersection, point),
-                    border: true
-                });
+            if (p !== false) {
+                endpoint = p;
             }
         }
-        for (ii = 0; ii < shapes.length; ii += 1) {
-            lines = shapes[ii].getLineSegments();
-            for (jj = 0; jj < lines.length; jj += 1) {
-                intersection = Flatland.getIntersectionWithLineSegment({
-                    point: point,
+        for (let ii = 0; ii < shapes.length; ii += 1) {
+            let lines = shapes[ii].getLineSegments();
+            for (let jj = 0; jj < lines.length; jj += 1) {
+                let p = Flatland.getIntersectionWithLineSegment({
+                    point: origin,
                     angle: angle,
                     line: lines[jj]
                 });
-                if (intersection !== false) {
-                    intersections.push({
-                        intersection: intersection,
-                        distance: Flatland.getDistance(intersection, point),
-                        border: false
-                    });
+                if (p !== false) {
+                    let d = Flatland.getDistance(p, origin);
+                    if (d < result.distance) {
+                        result = { distance: d, shape: shapes[ii] };
+                        endpoint = p;
+                    }
                 }
             }
         }
 
-        if (intersections.length > 0) {
-            min = intersections[0];
-            for (ii = 0; ii < intersections.length; ii += 1) {
-                if (intersections[ii].distance < min.distance) {
-                    min = intersections[ii];
-                }
-            }
-
-            line = new Flatland.LineSegment({
-                start: point,
-                end: min.intersection
-            });
-            if (draw) {
-                line.draw({ context: context});
-            }
-            return min;
-        }
-
-        return false;
+        let line = new Flatland.LineSegment({
+            start: origin,
+            end: endpoint
+        });
+        line.draw(cheatCtx);
+        return result;
     };
 
 }());

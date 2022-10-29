@@ -4,59 +4,51 @@
     /*global Flatland*/
 
     window.onload = function () {
-        var canvas = window.document.getElementById('shapes'),
-            context = canvas.getContext('2d'),
-            viewcanvas = window.document.getElementById('view'),
-            viewcontext = viewcanvas.getContext('2d'),
-            view,
-            swap,
-            speedx = 0,
-            speedy = 0,
-            min_speed = -10,
-            max_speed = 10,
-            deceleration = 0.4,
-            acceleration = 1.0,
-            move,
-            angle_speed = Math.PI / 30,
-            width = canvas.width,
-            height = canvas.height,
-            grid = [],
-            borders = [],
-            interval = 100,
-            rays = 500,
-            arc_size = Math.PI / 2,
-            step = arc_size / rays,
-            set_point_in_bounds,
-            player;
+        let cheatCanvas = window.document.getElementById('shapes');
+        let cheatCtx = cheatCanvas.getContext('2d');
+        let viewCanvas = window.document.getElementById('view');
+        let viewCtx = viewCanvas.getContext('2d');
+        let speedx = 0;
+        let speedy = 0;
+        const min_speed = -10;
+        const max_speed = 10;
+        const deceleration = 0.4;
+        const acceleration = 1.0;
+        const angle_speed = Math.PI / 30;
+        let grid = [];
+        let borders = [];
+        const rays = 500;
+        const arc_size = Math.PI / 2;
+        const step = arc_size / rays;
 
-        // the canvas that shows what the swuare sees
-        view = new Flatland.View({
-            fwidth: width,
-            fheight: height,
-            width: viewcanvas.width,
-            height: viewcanvas.height,
+        // the canvas that shows what the square sees
+        var view = new Flatland.View({
+            fwidth: cheatCanvas.width,
+            fheight: cheatCanvas.height,
+            width: viewCanvas.width,
+            height: viewCanvas.height,
             rays: rays
         });
 
         // the square that's controlled by the user
-        player = new Flatland.Shape({
+        var player = new Flatland.Shape({
             sides: 4,
-            center: new Flatland.Point({ x: canvas.width / 2, y: canvas.height / 2 }),
+            center: new Flatland.Point({ x: cheatCanvas.width / 2, y: cheatCanvas.height / 2 }),
             angle: 0,
             radius: 6
         });
 
-        // given an orignal point and a second point,
+        // given an original point and a second point,
         // returns a new point that has the x and y coordinates
         // of the new point only if they're inside the canvas's bounds
-        set_point_in_bounds = function (point, addpoint) {
-            var x = addpoint.x,
-                y = addpoint.y;
+        var set_point_in_bounds = function (point, addpoint) {
+            var x = addpoint.x;
+            var y = addpoint.y;
 
-            if (x > width || x < 0) {
+            if (x > cheatCanvas.width || x < 0) {
                 x = point.x;
             }
-            if (y > height || y < 0) {
+            if (y > cheatCanvas.height || y < 0) {
                 y = point.y;
             }
 
@@ -82,7 +74,7 @@
 
         // moves the player on the canvas according to the speed
         // and acceleration
-        move = function () {
+        var move = function () {
             var point,
                 slow_down;
 
@@ -128,42 +120,34 @@
         // the lines bordering the canvas
         borders.push(new Flatland.LineSegment({
             start: new Flatland.Point({ x: 0, y: 0 }),
-            end: new Flatland.Point({ x: width, y: 0 })
+            end: new Flatland.Point({ x: cheatCanvas.width, y: 0 })
         }));
         borders.push(new Flatland.LineSegment({
-            start: new Flatland.Point({ x: 0, y: height }),
-            end: new Flatland.Point({ x: width, y: height })
+            start: new Flatland.Point({ x: 0, y: cheatCanvas.height }),
+            end: new Flatland.Point({ x: cheatCanvas.width, y: cheatCanvas.height })
         }));
         borders.push(new Flatland.LineSegment({
             start: new Flatland.Point({ x: 0, y: 0 }),
-            end: new Flatland.Point({ x: 0, y: height })
+            end: new Flatland.Point({ x: 0, y: cheatCanvas.height })
         }));
         borders.push(new Flatland.LineSegment({
-            start: new Flatland.Point({ x: width, y: 0 }),
-            end: new Flatland.Point({ x: width, y: height })
+            start: new Flatland.Point({ x: cheatCanvas.width, y: 0 }),
+            end: new Flatland.Point({ x: cheatCanvas.width, y: cheatCanvas.height })
         }));
 
         // array that contains the shapes floating around on the canvas
         grid = (function () {
-            var grid = [],
-                length = canvas.width / 3,
-                count = 0,
-                centerx,
-                centery,
-                ii,
-                jj;
+            var grid = [];
+            let length = cheatCanvas.width / 3;
 
-            centery = centery = -1 * (length / 2);
-            // right now a 5x5 grid is hard coded
-            // in the future, that should be configurable
-            for (ii = 0; ii < 5; ii += 1) {
-                centerx = -1 * (length / 2);
-                for (jj = 0; jj < 5; jj += 1) {
+            let centery = -1 * (length / 2);
+            for (let ii = 0; ii < 5; ii += 1) {
+                let centerx = -1 * (length / 2);
+                for (let jj = 0; jj < 5; jj += 1) {
                     grid.push(new Flatland.Grid({
                         center: new Flatland.Point({ x: centerx, y: centery }),
                         length: length,
                     }));
-                    count += 1;
                     centerx += length;
                 }
                 centery += length;
@@ -172,7 +156,7 @@
         }());
 
         // move resident of one grid to another
-        swap = function (one, two) {
+        var swap = function (one, two) {
             two.resident = one.resident;
             two.resident.grid = two;
             two.resident.prev_grid = one;
@@ -182,33 +166,25 @@
         };
 
         setInterval(function () {
-            var random,
-                intersections,
-                intersection,
-                residents,
-                line,
-                ii;
-
-
             // clear the canvases before doing anything
-            context.clearRect(0, 0, canvas.width, canvas.height);
-            viewcontext.clearRect(0, 0, viewcanvas.width, viewcanvas.height);
+            cheatCtx.clearRect(0, 0, cheatCanvas.width, cheatCanvas.height);
+            viewCtx.clearRect(0, 0, viewCanvas.width, viewCanvas.height);
 
             // move the player
             move();
 
-            player.draw({ context: context });
+            player.draw(cheatCtx);
 
             // Draw the shapes and randomly decide where they'll go next,
             // Note that there's some hard coded 5x5 logic here too that
             // should eventually be removed.
-            residents = [];
-            for (ii = 0; ii < grid.length; ii += 1) {
+            var residents = [];
+            for (let ii = 0; ii < grid.length; ii += 1) {
                 if (grid[ii].resident) {
                     residents.push(grid[ii].resident);
-                    grid[ii].resident.draw({ context: context });
+                    grid[ii].resident.draw(cheatCtx);
                     if (!grid[ii].busy) {
-                        random = Math.floor(Math.random() * 5);
+                        let random = Math.floor(Math.random() * 5);
                         if (random === 0) {
                             if (ii < 5) {
                                 grid[ii].resident = false;
@@ -236,31 +212,26 @@
                         }
                     }
                 } else if (!grid[ii].busy && (ii < 5 || ii > 19 || ii % 5 === 0 || ii % 5 === 4) && Math.random() < 0.005) {
-                    grid[ii].resident = new Flatland.RandomShape({ grid: grid[ii] });
+                    grid[ii].resident = new Flatland.RandomShape(grid[ii]);
                 }
             }
 
             // do the 'ray casting' and find all the intersections.
-            intersections = [];
-            for (ii = 0; ii <= rays; ii += 1) {
-                intersection = Flatland.getAndDrawIntersection({
-                    point: player.center,
+            var intersections = [];
+            for (let ii = 0; ii <= rays; ii += 1) {
+                let ray = Flatland.getAndDrawRay({
+                    origin: player.center,
                     angle: player.angle + (ii * step) - (arc_size / 2),
                     shapes: residents,
                     borders: borders,
-                    draw: true,
-                    context: context
+                    context: cheatCtx
                 });
-                if (intersection !== false) {
-                    intersections.push(intersection);
-                }
+                intersections.push(ray);
             }
             view.draw({
                 intersections: intersections,
-                context: viewcontext
+                context: viewCtx
             });
-        },
-            interval);
-
+        }, 100);
     };
 }());

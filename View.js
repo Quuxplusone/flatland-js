@@ -10,17 +10,6 @@ Flatland = Flatland || {};
     // but the height can be different.
     Flatland.View = function (args) {
         var that = this;
-        that.fwidth = args.fwidth;
-        that.fheight = args.fheight;
-
-        that.min = 0;
-        that.max = that.fwidth > that.fheight ? that.fwidth : that.fheight;
-
-        // I'm just using a regular linear formula
-        // in the future, it might be worth it to use an inverse power
-        // or logorithmic formula
-        that.intercept = 0;
-        that.slope = (255) / (that.max);
 
         that.height = args.height;
         that.width = args.width;
@@ -30,12 +19,16 @@ Flatland = Flatland || {};
     };
 
     // The further away an object is, the lighter it is.
-    // Right now, it's just a linear formula based on distance.
     Flatland.View.prototype.getColor = function (distance) {
-        var that = this,
-            color = Math.round(that.slope * distance + that.intercept);
-
-        return 'rgb(' + String(color) + ',' + String(color) + ',' + String(color) + ')';
+        if (distance === Infinity) {
+            return 'rgb(240,248,255)';
+        }
+        let shapeFraction = Math.min(Math.max(0.0, Math.pow(0.99, distance)), 1.0);
+        let fogFraction = 1.0 - shapeFraction;
+        let shapeContribution = [47, 79, 79].map(x => shapeFraction * x);
+        let fogContribution = [240, 248, 255].map(x => fogFraction * x);
+        let color = shapeContribution.map((sc, i) => sc + fogContribution[i]);
+        return 'rgb(' + color[0].toFixed(0) + ',' + color[1].toFixed(0) + ',' + color[2].toFixed(0) + ')';
     };
 
     // given a list of intersections (or objects with
@@ -43,31 +36,19 @@ Flatland = Flatland || {};
     // draws to the context for each intersection. The closer
     // the object is, the darker it will be.
     Flatland.View.prototype.draw = function (args) {
-        var that = this,
-            intersections = args.intersections,
-            context = args.context,
-            distance,
-            ii;
+        var that = this;
+        let intersections = args.intersections;
+        let ctx = args.context;
 
-        for (ii = 0; ii < intersections.length; ii += 1) {
-            // if looking at the border, that should be
-            // equivalent to looking at the horizon
-            if (intersections[ii].border) {
-                distance = that.max;
-            } else {
-                distance = intersections[ii].distance;
-            }
-
-            context.beginPath();
-            context.moveTo(that.step * ii, 0);
-            context.lineTo(that.step * ii, that.height);
-            context.lineWidth = that.step;
-
-            context.strokeStyle = that.getColor(distance);
-            context.stroke();
+        for (let ii = 0; ii < intersections.length; ++ii) {
+            let d = intersections[ii].distance;
+            ctx.beginPath();
+            ctx.moveTo(that.step * ii, 0);
+            ctx.lineTo(that.step * ii, that.height);
+            ctx.lineWidth = that.step;
+            ctx.strokeStyle = that.getColor(d);
+            ctx.stroke();
         }
-
-        return that;
     };
 
 }());
