@@ -1,24 +1,14 @@
-var Flatland;
-Flatland = Flatland || {};
-
 (function () {
-    'use strict';
 
     // View is an object representing the context where we draw
     // what it looks like from the square's perspective.
-    // The context should have the same width as the main context
-    // but the height can be different.
-    Flatland.View = function (args) {
-        var that = this;
 
-        that.height = args.height;
-        that.width = args.width;
-        that.rays = args.rays;
-
-        that.step = that.width / that.rays;
+    Flatland.View = function (canvas, nrays) {
+        this.ctx = canvas.getContext('2d');
+        this.height = canvas.height;
+        this.step = canvas.width / nrays;
     };
 
-    // The further away an object is, the lighter it is.
     Flatland.View.prototype.getColor = function (distance) {
         if (distance === Infinity) {
             return 'rgb(240,248,255)';
@@ -31,23 +21,16 @@ Flatland = Flatland || {};
         return 'rgb(' + color[0].toFixed(0) + ',' + color[1].toFixed(0) + ',' + color[2].toFixed(0) + ')';
     };
 
-    // given a list of intersections (or objects with
-    // distance (Number) and border (Bool) fields), draws
-    // draws to the context for each intersection. The closer
-    // the object is, the darker it will be.
-    Flatland.View.prototype.draw = function (args) {
-        var that = this;
-        let intersections = args.intersections;
-        let ctx = args.context;
-
-        for (let ii = 0; ii < intersections.length; ++ii) {
-            let d = intersections[ii].distance;
-            ctx.beginPath();
-            ctx.moveTo(that.step * ii, 0);
-            ctx.lineTo(that.step * ii, that.height);
-            ctx.lineWidth = that.step;
-            ctx.strokeStyle = that.getColor(d);
-            ctx.stroke();
+    Flatland.View.prototype.draw = function (rays) {
+        // Each ray holds a 'distance' and a 'shape'.
+        for (let ii = 0; ii < rays.length; ++ii) {
+            let d = rays[ii].distance;
+            this.ctx.beginPath();
+            this.ctx.moveTo(this.step * ii, 0);
+            this.ctx.lineTo(this.step * ii, this.height);
+            this.ctx.lineWidth = this.step;
+            this.ctx.strokeStyle = this.getColor(d);
+            this.ctx.stroke();
         }
     };
 

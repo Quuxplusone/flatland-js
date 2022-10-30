@@ -1,18 +1,12 @@
-var Flatland;
-Flatland = Flatland || {};
-
+var Flatland = {};
 (function () {
-    'use strict';
 
-    var fe, ltfe, gtfe;
-
-    // convert the angle so it's always between 0 and 2PI
     Flatland.formatAngle = function (angle) {
-        if (angle < 0) {
-            return Math.PI * 2 + angle;
+        while (angle < 0) {
+            angle += 2 * Math.PI;
         }
-        if (angle >= Math.PI * 2) {
-            return angle - Math.PI * 2;
+        while (angle >= 2 * Math.PI) {
+            angle -= 2 * Math.PI;
         }
         return angle;
     };
@@ -23,11 +17,11 @@ Flatland = Flatland || {};
     Flatland.fuzzyEquals = function (a, b) {
         return Math.abs(a - b) < 0.00001;
     };
-    fe = Flatland.fuzzyEquals;
-    gtfe = function (a, b) {
+    let fe = Flatland.fuzzyEquals;
+    let gtfe = function (a, b) {
         return a > b || fe(a, b);
     };
-    ltfe = function (a, b) {
+    let ltfe = function (a, b) {
         return a < b || fe(a, b);
     };
 
@@ -35,7 +29,7 @@ Flatland = Flatland || {};
         return Math.hypot(p2.x - p1.x, p2.y - p1.y);
     };
 
-    Flatland.getMxPlusB = function (p1, p2) {
+    Flatland.endpointsToMxPlusB = function (p1, p2) {
         let m = (p2.y - p1.y) / (p2.x - p1.x);
         return {
             m: m,
@@ -44,9 +38,8 @@ Flatland = Flatland || {};
     };
 
     Flatland.LineSegment = function (args) {
-        let that = this;
-        that.start = args.start;
-        that.end = args.end;
+        this.start = args.start;
+        this.end = args.end;
     };
 
     // draws to the given context
@@ -70,6 +63,13 @@ Flatland = Flatland || {};
         return ltfe(px, q.x) && ltfe(q.x, rx) && ltfe(py, q.y) && ltfe(q.y, ry);
     };
 
+    Flatland.polarToMxPlusB = function (origin, angle) {
+        return Flatland.endpointsToMxPlusB(origin, {
+            x: origin.x + 10 * Math.cos(angle),
+            y: origin.y + 10 * Math.sin(angle),
+        });
+    };
+
     // given a line
     // a point and an angle,
     // returns the point of intersection or false if there is none
@@ -78,20 +78,17 @@ Flatland = Flatland || {};
         let angle = Flatland.formatAngle(args.angle);
         let start = args.line.start;
         let end = args.line.end;
-        let segment = Flatland.getMxPlusB(start, end);
-        let ray = Flatland.getMxPlusB(origin, new Flatland.Point({
-            x: origin.x + 10 * Math.cos(angle),
-            y: origin.y + 10 * Math.sin(angle),
-        }));
+        let segment = Flatland.endpointsToMxPlusB(start, end);
+        let ray = Flatland.polarToMxPlusB(origin, angle);
 
         let intersection;
         if (start.x === end.x) {
-            intersection = new Flatland.Point({ x: start.x, y: ray.m * start.x + ray.b });
+            intersection = { x: start.x, y: ray.m * start.x + ray.b };
         } else if (fe(angle, Math.PI / 2) || fe(angle, 3 * Math.PI / 2)) {
-            intersection = new Flatland.Point({ x: origin.x, y: segment.m * origin.x + segment.b });
+            intersection = { x: origin.x, y: segment.m * origin.x + segment.b };
         } else {
             let x = (ray.b - segment.b) / (segment.m - ray.m);
-            intersection = new Flatland.Point({ x: x, y: ray.m * x + ray.b });
+            intersection = { x: x, y: ray.m * x + ray.b };
         }
 
         // there will be an intersection in 2 cases:
@@ -101,68 +98,47 @@ Flatland = Flatland || {};
         if (!Flatland.betweenPoints({ point: intersection, start: start, end: end })) {
             return false;
         }
-        if (angle >= 0 && angle < Math.PI && intersection.y < origin.y) { // bottom
-            return false;
+        let angleToIntersection = Math.atan2(intersection.y - origin.y, intersection.x - origin.x) - args.angle;
+        while (angleToIntersection > Math.PI) {
+            angleToIntersection -= 2 * Math.PI;
         }
-        if (angle >= Math.PI && angle < 2 * Math.PI && intersection.y > origin.y) { // top
-            return false;
+        while (angleToIntersection < -Math.PI) {
+            angleToIntersection += 2 * Math.PI;
         }
-        if (((angle >= 0 && angle < Math.PI / 2) || (angle >= 3 * Math.PI / 2 && angle < 2 * Math.PI)) && intersection.x < origin.x) { // right
-            return false;
-        }
-        if (angle >= Math.PI / 2 && angle < 3 * Math.PI / 2 && intersection.x > origin.x) { // top
+        if (Math.abs(angleToIntersection) >= Math.PI / 2) {
             return false;
         }
         return intersection;
-    };
-
-    Flatland.Point = function (args) {
-        var that = this;
-
-        that.x = args.x;
-        that.y = args.y;
     };
 
     // Flatland.Shape: a regular polygon
     // given a center (Point), radius (Number), and number of sides (Number)
     // creates the corresponding regular polygon
     Flatland.Shape = function (args) {
-        var that = this;
-
-        that.center = args.center;
-        that.radius = args.radius;
-        that.angle = args.angle;
-        that.sides = args.sides;
-        that.increment = Math.PI - ((that.sides - 2) * Math.PI / that.sides);
+        this.center = args.center;
+        this.radius = args.radius;
+        this.angle = args.angle;
+        this.sides = args.sides;
     };
 
     // returns an array of Points that, if we draw lines between
-    // them, constitute the triangle
+    // them, constitute the Shape
     Flatland.Shape.prototype.getPoints = function () {
-        var that = this,
-            points = [],
-            angle = that.angle,
-            original = angle;
-
-        while (angle < original + Math.PI * 2) {
-            points.push(new Flatland.Point({
-                x: that.center.x + that.radius * Math.cos(angle),
-                y: that.center.y + that.radius * Math.sin(angle),
-            }));
-
-            angle += that.increment;
+        let points = [];
+        let increment = Math.PI - (Math.PI * (this.sides - 2) / this.sides);
+        for (let a = 0; a < 2 * Math.PI; a += increment) {
+            points.push({
+                x: this.center.x + this.radius * Math.cos(this.angle + a),
+                y: this.center.y + this.radius * Math.sin(this.angle + a),
+            });
         }
         return points;
     };
 
-    // similar to getPoints above, except returns LineSegents
-    // instead of Points
     Flatland.Shape.prototype.getLineSegments = function () {
-        var that = this,
-            points = that.getPoints(),
-            lines = [];
-
-        for (let ii = 1; ii < points.length; ii += 1) {
+        let points = this.getPoints();
+        let lines = [];
+        for (let ii = 1; ii < points.length; ++ii) {
             lines.push(new Flatland.LineSegment({
                 start: points[ii - 1],
                 end: points[ii]
@@ -172,7 +148,6 @@ Flatland = Flatland || {};
             start: points[points.length - 1],
             end: points[0]
         }));
-
         return lines;
     };
 
@@ -188,19 +163,16 @@ Flatland = Flatland || {};
     // grid.resident is the shape occupying the grid
     // grid.busy is true if a shape is moving into or out of the square
     Flatland.Grid = function (args) {
-        var that = this;
-
-        that.center = args.center;
-        that.length = args.length;
-        that.resident = false;
-        that.busy = false;
+        this.center = args.center;
+        this.length = args.length;
+        this.resident = false;
+        this.busy = false;
     };
 
     // Subclass (or whatever the prototypical version is called) of Shape,
     // a random regular polygon
     // it can have 3-8 sides and spin clockwise or counter-clockwise
     Flatland.RandomShape = function (grid) {
-        let that = this;
         this.grid = grid;
         this.spin = (Math.random() * Math.PI / 10) - Math.PI / 20;
         this.speed = 1;
@@ -208,39 +180,37 @@ Flatland = Flatland || {};
         Flatland.Shape.apply(this, [{
             sides: Math.floor(Math.random() * 6) + 3,
             radius: Math.random() * (1 / 3) * (grid.length / 2) + (1 / 3) * (grid.length / 2),
-            center: new Flatland.Point(grid.center),
+            center: { x: grid.center.x, y: grid.center.y },
             angle: Math.random() * Math.PI
         }]);
 
     };
     Flatland.RandomShape.prototype = new Flatland.Shape({});
-    Flatland.RandomShape.prototype.draw = function (args) {
-        var that = this;
-        that.angle = Flatland.formatAngle(that.angle + that.spin);
-        if (Math.abs(that.center.x - that.grid.center.x) < 1) {
-            that.center.x = that.grid.center.x;
-        } else if (that.center.x > that.grid.center.x) {
-            that.center.x -= that.speed;
-        } else if (that.center.x < that.grid.center.x) {
-            that.center.x += that.speed;
+
+    Flatland.RandomShape.prototype.moveNPC = function () {
+        this.angle = Flatland.formatAngle(this.angle + this.spin);
+        if (Math.abs(this.center.x - this.grid.center.x) < 1) {
+            this.center.x = this.grid.center.x;
+        } else if (this.center.x > this.grid.center.x) {
+            this.center.x -= this.speed;
+        } else if (this.center.x < this.grid.center.x) {
+            this.center.x += this.speed;
         }
 
-        if (Math.abs(that.center.y - that.grid.center.y) < 1) {
-            that.center.y = that.grid.center.y;
-        } else if (that.center.y > that.grid.center.y) {
-            that.center.y -= that.speed;
-        } else if (that.center.y < that.grid.center.y) {
-            that.center.y += that.speed;
+        if (Math.abs(this.center.y - this.grid.center.y) < 1) {
+            this.center.y = this.grid.center.y;
+        } else if (this.center.y > this.grid.center.y) {
+            this.center.y -= this.speed;
+        } else if (this.center.y < this.grid.center.y) {
+            this.center.y += this.speed;
         }
 
-        if (that.grid.center.x === that.center.x && that.grid.center.y === that.center.y) {
-            that.grid.busy = false;
-            if (that.prev_grid) {
-                that.prev_grid.busy = false;
+        if (this.grid.center.x === this.center.x && this.grid.center.y === this.center.y) {
+            this.grid.busy = false;
+            if (this.prev_grid) {
+                this.prev_grid.busy = false;
             }
         }
-
-        return Flatland.Shape.prototype.draw.apply(that, [args]);
     };
 
     // Given a point and an angle
@@ -277,7 +247,7 @@ Flatland = Flatland || {};
                     line: lines[jj]
                 });
                 if (p !== false) {
-                    let d = Flatland.getDistance(p, origin);
+                    let d = Flatland.getDistance(origin, p);
                     if (d < result.distance) {
                         result = { distance: d, shape: shapes[ii] };
                         endpoint = p;
