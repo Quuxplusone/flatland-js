@@ -1,9 +1,9 @@
 (function () {
 
     window.onload = function () {
-        let cheatCanvas = window.document.getElementById('shapes');
+        let cheatCanvas = window.document.getElementById("cheatView");
         let cheatCtx = cheatCanvas.getContext('2d');
-        let viewCanvas = window.document.getElementById('view');
+        let viewCanvas = window.document.getElementById("view");
         let viewCtx = viewCanvas.getContext('2d');
         let speedx = 0;
         let speedy = 0;
@@ -46,6 +46,8 @@
                 speedy += acceleration * Math.sin(player.angle + Math.PI/2);
             } else if (e.keyCode == 32) { // pause
                 pauseNPCs = !pauseNPCs;
+            } else if (e.key == '~') {
+                cheatCanvas.hidden = !cheatCanvas.hidden;
             }
         };
 
@@ -56,8 +58,8 @@
             speedy = Math.min(Math.max(-max_speed, speedy), max_speed);
 
             player.center = {
-                x: Math.min(Math.max(0, player.center.x + speedx), cheatCanvas.width),
-                y: Math.min(Math.max(0, player.center.y + speedy), cheatCanvas.height)
+                x: Math.min(Math.max(1, player.center.x + speedx), cheatCanvas.width - 1),
+                y: Math.min(Math.max(1, player.center.y + speedy), cheatCanvas.height - 1)
             };
 
             speedx = (speedx >= 0) ? Math.max(0, speedx - deceleration) : Math.min(0, speedx + deceleration);

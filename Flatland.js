@@ -213,6 +213,10 @@ var Flatland = {};
         }
     };
 
+    Flatland.getNormal = function (line) {
+        return Math.atan2(line.end.y - line.start.y, line.end.x - line.start.x) - (Math.PI / 2);
+    };
+
     // Given a point and an angle
     // a list of the lines bordering the context,
     // the drawing context,
@@ -225,7 +229,7 @@ var Flatland = {};
         let shapes = args.shapes;
         let borders = args.borders;
         let cheatCtx = args.context;
-        let result = { distance: Infinity };
+        let result = { distance: Infinity, angle: angle };
         let endpoint = null;
 
         for (let ii = 0; ii < borders.length; ii += 1) {
@@ -249,7 +253,7 @@ var Flatland = {};
                 if (p !== false) {
                     let d = Flatland.getDistance(origin, p);
                     if (d < result.distance) {
-                        result = { distance: d, shape: shapes[ii] };
+                        result = { distance: d, angle: angle, normal: Flatland.getNormal(lines[jj]), shape: shapes[ii] };
                         endpoint = p;
                     }
                 }
