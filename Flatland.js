@@ -1,6 +1,20 @@
 var Flatland = {};
 (function () {
 
+    Flatland.lerp = function (f, c0, c1) {
+        f = Math.min(Math.max(0, f), 1);
+        return c0.map((x, i) => x*(1-f) + c1[i]*f);
+    };
+
+    Flatland.normalDist = function (mean, sd) {
+        let u = 0;
+        let v = 0;
+        while (u === 0) u = Math.random(); //Converting [0,1) to (0,1)
+        while (v === 0) v = Math.random();
+        let n = Math.sqrt(-2.0 * Math.log(u)) * Math.cos(2.0 * Math.PI * v);
+        return (sd * n) + mean;
+    }
+
     Flatland.formatAngle = function (angle) {
         while (angle < 0) {
             angle += 2 * Math.PI;
@@ -177,14 +191,39 @@ var Flatland = {};
         this.spin = (Math.random() * Math.PI / 10) - Math.PI / 20;
         this.speed = 1;
         this.prev_grid = null;
-        Flatland.Shape.apply(this, [{
-            sides: Math.floor(Math.random() * 6) + 3,
-            radius: Math.random() * (1 / 3) * (grid.length / 2) + (1 / 3) * (grid.length / 2),
-            center: { x: grid.center.x, y: grid.center.y },
-            angle: Math.random() * Math.PI
-        }]);
-
+        this.center = { x: grid.center.x, y: grid.center.y };
+        this.radius = 20 * Flatland.normalDist(1, 0.2);
+        this.angle = Math.random() * Math.PI;
+        this.sides = Math.random() < 0.33 ? 3 :  // 33% triangles
+                     Math.random() < 0.58 ? 4 :  // 25% squares
+                     Math.random() < 0.76 ? 5 :  // 18% pentagons
+                     Math.random() < 0.86 ? 6 :  // 10% hexagons
+                     Math.random() < 0.89 ? 7 :  // 3% heptagons
+                     Math.random() < 0.94 ? 8 :  // 5% octagons
+                     Math.floor(9 + 1.0 / (Math.random() + 0.1));
+        let colors = [
+            [255, 160, 122],
+            [255, 218, 185],
+            [255, 228, 181],
+            [255, 239, 213],
+            [139,  69,  19],
+            [160,  82,  45],
+            [210, 105,  30],
+            [244, 164,  96],
+            [222, 184, 135],
+            [245, 222, 179],
+            [255, 222, 173],
+            [255, 228, 196],
+            [255, 235, 205],
+            [250, 235, 215],
+            [250, 240, 230],
+            [255, 245, 238]
+        ];
+        let i = Math.floor(Math.random() * colors.length);
+        let j = Math.floor(Math.random() * colors.length);
+        this.color = Flatland.lerp(Math.random(), colors[i], colors[j]);
     };
+
     Flatland.RandomShape.prototype = new Flatland.Shape({});
 
     Flatland.RandomShape.prototype.moveNPC = function () {

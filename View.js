@@ -10,13 +10,7 @@
     };
 
     Flatland.View.prototype.getColor = function (ray) {
-        let lerp = function(f, c0, c1) {
-            f = Math.min(Math.max(0, f), 1);
-            return c0.map((x, i) => x*(1-f) + c1[i]*f);
-        };
-
-        let shapeColor = [255, 222, 210];
-        let fogColor = lerp(0.25, [50,50,100], [240, 248, 255]);
+        let fogColor = Flatland.lerp(0.25, [50,50,100], [240, 248, 255]);
         let daylightColor = [255, 255, 224];
         let specularLightColor = [255, 255, 255];
 
@@ -24,23 +18,23 @@
         let angleToEye = ray.angle + Math.PI;
 
         if (ray.distance === Infinity) {
-            return lerp(0.5 * Math.pow(Math.cos(angleToEye - angleToDaylight), 3.0), fogColor, daylightColor);
+            return Flatland.lerp(0.5 * Math.pow(Math.cos(angleToEye - angleToDaylight), 3.0), fogColor, daylightColor);
         }
 
         let angleOfReflection = ray.normal - (angleToEye - ray.normal);
         let ambientFactor = 0.5;
         let diffuseDaylightFactor = 0.5 * Math.max(0, Math.cos(angleToDaylight - ray.normal));
         let diffuseHeadlampFactor = 0.25 * Math.max(0, Math.cos(angleToEye - ray.normal));
-        let litShapeColor = lerp(ambientFactor + diffuseDaylightFactor + diffuseHeadlampFactor, [0,0,0], shapeColor);
+        let litShapeColor = Flatland.lerp(ambientFactor + diffuseDaylightFactor + diffuseHeadlampFactor, [0,0,0], ray.shape.color);
 
         let specularDaylightFactor = Math.pow(Math.max(0, Math.cos(angleToDaylight - angleOfReflection)), 15.0);
         let specularHeadlampFactor = 0.5 * Math.pow(Math.max(0, Math.cos(angleToEye - angleOfReflection)), 30.0);
-        let specularDaylightComponent = lerp(specularDaylightFactor, [0,0,0], daylightColor);
-        let specularHeadlampComponent = lerp(specularHeadlampFactor, [0,0,0], [255,255,255]);
+        let specularDaylightComponent = Flatland.lerp(specularDaylightFactor, [0,0,0], daylightColor);
+        let specularHeadlampComponent = Flatland.lerp(specularHeadlampFactor, [0,0,0], [255,255,255]);
         litShapeColor = litShapeColor.map((x, i) => Math.min(255, x + specularDaylightComponent[i] + specularHeadlampComponent[i]));
 
         let fogFactor = Math.min(Math.max(0.0, Math.pow(0.999, ray.distance)), 1.0);
-        let rgb = lerp(fogFactor, fogColor, litShapeColor);
+        let rgb = Flatland.lerp(fogFactor, fogColor, litShapeColor);
         return rgb;
     };
 

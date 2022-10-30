@@ -24,7 +24,7 @@
             sides: 4,
             center: { x: cheatCanvas.width / 2, y: cheatCanvas.height / 2 },
             angle: 0,
-            radius: 6
+            radius: 12
         });
 
         window.document.onkeydown = function (e) {
