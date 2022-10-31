@@ -182,10 +182,6 @@ var Flatland = {};
         }
     };
 
-    // To make drawing shapes easier, the context is divided up into a grid
-    // each square in the grid is a Flatland.Grid.
-    // grid.resident is the shape occupying the grid
-    // grid.busy is true if a shape is moving into or out of the square
     Flatland.Grid = function (args) {
         this.center = args.center;
         this.length = args.length;
@@ -193,13 +189,14 @@ var Flatland = {};
         this.busy = false;
     };
 
-    // Subclass (or whatever the prototypical version is called) of Shape,
-    // a random regular polygon
-    // it can have 3-8 sides and spin clockwise or counter-clockwise
     Flatland.RandomShape = function (grid) {
-        this.grid = grid;
-        this.spin = (Math.random() * Math.PI / 10) - Math.PI / 20;
+        // `cam` controls the shape's wiggling or rotating.
+        // `cam` is incremented by `camDelta` each time the NPC moves.
+        this.cam = 0.0;
+        this.camDelta = (Math.random() * Math.PI / 10) - Math.PI / 20;
+        this.dir = 0.0;
         this.speed = 1;
+        this.grid = grid;
         this.prev_grid = null;
         this.center = { x: grid.center.x, y: grid.center.y };
         this.radius = 20 * Flatland.normalDist(1, 0.2);
@@ -245,7 +242,12 @@ var Flatland = {};
     Flatland.RandomShape.prototype = new Flatland.Shape({});
 
     Flatland.RandomShape.prototype.moveNPC = function () {
-        this.angle = Flatland.formatAngle(this.angle + this.spin);
+        this.cam += this.camDelta;
+        if (this.isIsosceles) {
+            this.angle = this.dir + Math.sin(this.cam) * (Math.PI / 10);
+        } else {
+            this.angle = this.cam;
+        }
         if (Math.abs(this.center.x - this.grid.center.x) < 1) {
             this.center.x = this.grid.center.x;
         } else if (this.center.x > this.grid.center.x) {
