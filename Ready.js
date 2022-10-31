@@ -162,7 +162,7 @@
             // move the player
             move();
 
-            player.draw(cheatCtx);
+            Flatland.drawShape(cheatCtx, player);
 
             if (!pauseNPCs) {
                 moveNPCs();
@@ -172,16 +172,16 @@
             for (let ii = 0; ii < grid.length; ii += 1) {
                 if (grid[ii].resident) {
                     residents.push(grid[ii].resident);
-                    grid[ii].resident.draw(cheatCtx);
+                    Flatland.drawShape(cheatCtx, grid[ii].resident);
                 }
             }
 
             // do the 'ray casting' and find all the intersections.
             var rays = [];
-            for (let ii = 0; ii <= nrays; ii += 1) {
+            for (let i = 0; i <= nrays; ++i) {
                 let ray = Flatland.getAndDrawRay({
                     origin: player.center,
-                    angle: player.angle + (ii * step) - (arc_size / 2),
+                    angle: player.angle + (i * step) - (arc_size / 2),
                     shapes: residents,
                     borders: borders,
                     context: cheatCtx

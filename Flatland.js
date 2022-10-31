@@ -137,20 +137,30 @@ var Flatland = {};
 
     // returns an array of Points that, if we draw lines between
     // them, constitute the Shape
-    Flatland.Shape.prototype.getPoints = function () {
-        let points = [];
-        let increment = Math.PI - (Math.PI * (this.sides - 2) / this.sides);
-        for (let a = 0; a < 2 * Math.PI; a += increment) {
-            points.push({
-                x: this.center.x + this.radius * Math.cos(this.angle + a),
-                y: this.center.y + this.radius * Math.sin(this.angle + a),
-            });
+    Flatland.getPoints = function (shape) {
+        let c = shape.center;
+        let r = shape.radius;
+        if (shape.isIsosceles) {
+            let d = (2*Math.PI / 3) + shape.degreeOfIrregularity * (Math.PI / 3);
+            return [
+                {x: c.x + r * Math.cos(shape.angle + 0), y: c.y + r * Math.sin(shape.angle + 0)},
+                {x: c.x + r * Math.cos(shape.angle + d), y: c.y + r * Math.sin(shape.angle + d)},
+                {x: c.x + r * Math.cos(shape.angle - d), y: c.y + r * Math.sin(shape.angle - d)},
+            ];
+        } else {
+            let points = [];
+            for (let i = 0; i < shape.sides; ++i) {
+                points.push({
+                    x: c.x + r * Math.cos(shape.angle + 2*i*Math.PI / shape.sides),
+                    y: c.y + r * Math.sin(shape.angle + 2*i*Math.PI / shape.sides),
+                });
+            }
+            return points;
         }
-        return points;
     };
 
-    Flatland.Shape.prototype.getLineSegments = function () {
-        let points = this.getPoints();
+    Flatland.getLineSegments = function (shape) {
+        let points = Flatland.getPoints(shape);
         let lines = [];
         for (let ii = 1; ii < points.length; ++ii) {
             lines.push(new Flatland.LineSegment({
@@ -166,8 +176,8 @@ var Flatland = {};
     };
 
     // draw shape to the given context
-    Flatland.Shape.prototype.draw = function (cheatCtx) {
-        for (let line of this.getLineSegments()) {
+    Flatland.drawShape = function (cheatCtx, shape) {
+        for (let line of Flatland.getLineSegments(shape)) {
             line.draw(cheatCtx);
         }
     };
@@ -194,13 +204,21 @@ var Flatland = {};
         this.center = { x: grid.center.x, y: grid.center.y };
         this.radius = 20 * Flatland.normalDist(1, 0.2);
         this.angle = Math.random() * Math.PI;
-        this.sides = Math.random() < 0.33 ? 3 :  // 33% triangles
-                     Math.random() < 0.58 ? 4 :  // 25% squares
-                     Math.random() < 0.76 ? 5 :  // 18% pentagons
-                     Math.random() < 0.86 ? 6 :  // 10% hexagons
-                     Math.random() < 0.89 ? 7 :  // 3% heptagons
-                     Math.random() < 0.94 ? 8 :  // 5% octagons
-                     Math.floor(9 + 1.0 / (Math.random() + 0.1));
+        let t = Math.random();
+        if (t < 0.2) {
+            this.isIsosceles = true;
+            this.sides = 3;
+            this.degreeOfIrregularity = Flatland.normalDist(0.5, 0.2);
+        } else {
+            this.isIsosceles = false;
+            this.sides = t < 0.33 ? 3 :  // 33% triangles
+                         t < 0.58 ? 4 :  // 25% squares
+                         t < 0.76 ? 5 :  // 18% pentagons
+                         t < 0.86 ? 6 :  // 10% hexagons
+                         t < 0.89 ? 7 :  // 3% heptagons
+                         t < 0.94 ? 8 :  // 5% octagons
+                         Math.floor(9 + 1.0 / (Math.random() + 0.1));
+        }
         let colors = [
             [255, 160, 122],
             [255, 218, 185],
@@ -271,28 +289,27 @@ var Flatland = {};
         let result = { distance: Infinity, angle: angle };
         let endpoint = null;
 
-        for (let ii = 0; ii < borders.length; ii += 1) {
+        for (let border of borders) {
             let p = Flatland.getIntersectionWithLineSegment({
                 point: origin,
                 angle: angle,
-                line: borders[ii]
+                line: border
             });
             if (p !== false) {
                 endpoint = p;
             }
         }
-        for (let ii = 0; ii < shapes.length; ii += 1) {
-            let lines = shapes[ii].getLineSegments();
-            for (let jj = 0; jj < lines.length; jj += 1) {
+        for (let shape of shapes) {
+            for (let line of Flatland.getLineSegments(shape)) {
                 let p = Flatland.getIntersectionWithLineSegment({
                     point: origin,
                     angle: angle,
-                    line: lines[jj]
+                    line: line
                 });
                 if (p !== false) {
                     let d = Flatland.getDistance(origin, p);
                     if (d < result.distance) {
-                        result = { distance: d, angle: angle, normal: Flatland.getNormal(lines[jj]), shape: shapes[ii] };
+                        result = { distance: d, angle: angle, normal: Flatland.getNormal(line), shape: shape };
                         endpoint = p;
                     }
                 }
