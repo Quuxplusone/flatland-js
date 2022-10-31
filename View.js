@@ -22,7 +22,7 @@ Flatland.View.prototype.getColor = function (ray) {
     let angleOfReflection = ray.normal - (angleToEye - ray.normal);
     let ambientFactor = 0.5;
     let diffuseDaylightFactor = 0.5 * Math.max(0, Math.cos(angleToDaylight - ray.normal));
-    let diffuseHeadlampFactor = 0.25 * Math.max(0, Math.cos(angleToEye - ray.normal));
+    let diffuseHeadlampFactor = 0.2 * Math.max(0, Math.cos(angleToEye - ray.normal));
     let litShapeColor = Flatland.lerp(ambientFactor + diffuseDaylightFactor + diffuseHeadlampFactor, [0,0,0], ray.shape.color);
 
     let specularDaylightFactor = Math.pow(Math.max(0, Math.cos(angleToDaylight - angleOfReflection)), 15.0);

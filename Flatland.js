@@ -175,13 +175,6 @@ var Flatland = {};
         return lines;
     };
 
-    // draw shape to the given context
-    Flatland.drawShape = function (cheatCtx, shape) {
-        for (let line of Flatland.getLineSegments(shape)) {
-            line.draw(cheatCtx);
-        }
-    };
-
     Flatland.Grid = function (args) {
         this.center = args.center;
         this.length = args.length;

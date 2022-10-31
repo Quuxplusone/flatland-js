@@ -14,8 +14,8 @@ window.onload = function () {
     const arc_size = Math.PI / 2;
     const step = arc_size / nrays;
 
-    // the canvas that shows what the square sees
     let view = new Flatland.View(viewCanvas, nrays);
+    let cheatView = new Flatland.CheatView(cheatCanvas);
 
     // the square that's controlled by the user
     let player = new Flatland.Shape({
@@ -167,12 +167,6 @@ window.onload = function () {
             }
         }
 
-        Flatland.drawShape(cheatCtx, player);
-        for (let npc of npcs) {
-            Flatland.drawShape(cheatCtx, npc);
-        }
-
-        // do the 'ray casting' and find all the intersections
         var rays = [];
         for (let i = 0; i <= nrays; ++i) {
             let ray = Flatland.getAndDrawRay({
@@ -185,6 +179,11 @@ window.onload = function () {
             rays.push(ray);
         }
         view.draw(rays);
+
+        cheatView.drawShape(player);
+        for (let npc of npcs) {
+            cheatView.drawShape(npc);
+        }
     };
 
     for (let i = 0; i < 300; ++i) timeStep();
