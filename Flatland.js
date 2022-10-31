@@ -125,15 +125,6 @@ var Flatland = {};
         return intersection;
     };
 
-    // Flatland.Shape: a regular polygon
-    // given a center (Point), radius (Number), and number of sides (Number)
-    // creates the corresponding regular polygon
-    Flatland.Shape = function (args) {
-        this.center = args.center;
-        this.radius = args.radius;
-        this.angle = args.angle;
-        this.sides = args.sides;
-    };
 
     // returns an array of Points that, if we draw lines between
     // them, constitute the Shape
@@ -231,8 +222,6 @@ var Flatland = {};
         let j = Math.floor(Math.random() * colors.length);
         this.color = Flatland.lerp(Math.random(), colors[i], colors[j]);
     };
-
-    Flatland.RandomShape.prototype = new Flatland.Shape({});
 
     Flatland.RandomShape.prototype.moveNPC = function () {
         this.cam += this.camDelta;

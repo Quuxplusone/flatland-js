@@ -3,13 +3,13 @@ window.onload = function () {
     let cheatCtx = cheatCanvas.getContext('2d');
     let viewCanvas = window.document.getElementById("view");
     let viewCtx = viewCanvas.getContext('2d');
-    let speedx = 0;
-    let speedy = 0;
     let pauseNPCs = false;
     const max_speed = 10;
+    const max_speeda = Math.PI / 30;
     const deceleration = 0.4;
     const acceleration = 1.0;
-    const angle_speed = Math.PI / 30;
+    const angular_acceleration = Math.PI / 100;
+    const angular_deceleration = Math.PI / 200;
     const nrays = 500;
     const arc_size = Math.PI / 2;
     const step = arc_size / nrays;
@@ -18,30 +18,33 @@ window.onload = function () {
     let cheatView = new Flatland.CheatView(cheatCanvas);
 
     // the square that's controlled by the user
-    let player = new Flatland.Shape({
+    let player = {
         sides: 4,
         center: { x: cheatCanvas.width / 2, y: cheatCanvas.height / 2 },
-        angle: 0,
-        radius: 12
-    });
+        angle: 0,  // also counts as `dir`: the player doesn't wiggle
+        radius: 12,
+        speedx: 0,
+        speedy: 0,
+        speeda: 0,
+    };
 
     window.document.onkeydown = function (e) {
-        if (e.keyCode === 37 || e.key == 'a') { // left
-            player.angle = Flatland.formatAngle(player.angle - angle_speed);
-        } else if (e.keyCode === 38 || e.key == 'w') { // up
-            speedx += acceleration * Math.cos(player.angle);
-            speedy += acceleration * Math.sin(player.angle);
-        } else if (e.keyCode === 39 || e.key == 'd') { // right
-            player.angle = Flatland.formatAngle(player.angle + angle_speed);
-        } else if (e.keyCode === 40 || e.key == 's') { // down
-            speedx -= acceleration * Math.cos(player.angle);
-            speedy -= acceleration * Math.sin(player.angle);
+        if (e.keyCode === 37 || e.key == 'a') { // turn left
+            player.speeda -= angular_acceleration;
+        } else if (e.keyCode === 39 || e.key == 'd') { // turn right
+            player.speeda += angular_acceleration;
+        } else if (e.keyCode === 38 || e.key == 'w') { // forward
+            player.speedx += acceleration * Math.cos(player.angle);
+            player.speedy += acceleration * Math.sin(player.angle);
+        } else if (e.keyCode === 40 || e.key == 's') { // back
+            player.speedx -= acceleration * Math.cos(player.angle);
+            player.speedy -= acceleration * Math.sin(player.angle);
         } else if (e.key == 'z') { // strafe left
-            speedx += acceleration * Math.cos(player.angle - Math.PI/2);
-            speedy += acceleration * Math.sin(player.angle - Math.PI/2);
+            player.speedx += acceleration * Math.cos(player.angle - Math.PI/2);
+            player.speedy += acceleration * Math.sin(player.angle - Math.PI/2);
         } else if (e.key == 'x') { // strafe right
-            speedx += acceleration * Math.cos(player.angle + Math.PI/2);
-            speedy += acceleration * Math.sin(player.angle + Math.PI/2);
+            player.speedx += acceleration * Math.cos(player.angle + Math.PI/2);
+            player.speedy += acceleration * Math.sin(player.angle + Math.PI/2);
         } else if (e.keyCode == 32) { // pause
             pauseNPCs = !pauseNPCs;
         } else if (e.key == '~') {
@@ -50,16 +53,33 @@ window.onload = function () {
     };
 
     let movePlayer = function () {
-        speedx = Math.min(Math.max(-max_speed, speedx), max_speed);
-        speedy = Math.min(Math.max(-max_speed, speedy), max_speed);
+        player.speedx = Math.min(Math.max(-max_speed, player.speedx), max_speed);
+        player.speedy = Math.min(Math.max(-max_speed, player.speedy), max_speed);
+        player.speeda = Math.min(Math.max(-max_speeda, player.speeda), max_speeda);
 
         player.center = {
-            x: Math.min(Math.max(1, player.center.x + speedx), cheatCanvas.width - 1),
-            y: Math.min(Math.max(1, player.center.y + speedy), cheatCanvas.height - 1)
+            x: Math.min(Math.max(1, player.center.x + player.speedx), cheatCanvas.width - 1),
+            y: Math.min(Math.max(1, player.center.y + player.speedy), cheatCanvas.height - 1)
         };
+        player.angle = Flatland.formatAngle(player.angle + player.speeda);
 
-        speedx = (speedx >= 0) ? Math.max(0, speedx - deceleration) : Math.min(0, speedx + deceleration);
-        speedy = (speedy >= 0) ? Math.max(0, speedy - deceleration) : Math.min(0, speedy + deceleration);
+        player.speedx = (player.speedx >= 0) ? Math.max(0, player.speedx - deceleration) : Math.min(0, player.speedx + deceleration);
+        player.speedy = (player.speedy >= 0) ? Math.max(0, player.speedy - deceleration) : Math.min(0, player.speedy + deceleration);
+        player.speeda = (player.speeda >= 0) ? Math.max(0, player.speeda - angular_deceleration) : Math.min(0, player.speeda + angular_deceleration);
+
+        // Re-center the player by force.
+        if (player.center.x != cheatCanvas.width/2 || player.center.y != cheatCanvas.height/2) {
+            for (let g of grid) {
+                if (g.resident) {
+                    g.resident.center.x -= (player.center.x - cheatCanvas.width/2);
+                    g.resident.center.y -= (player.center.y - cheatCanvas.height/2);
+                }
+                g.center.x -= (player.center.x - cheatCanvas.width/2);
+                g.center.y -= (player.center.y - cheatCanvas.height/2);
+            }
+            player.center.x = cheatCanvas.width/2;
+            player.center.y = cheatCanvas.height/2;
+        }
     };
 
     const borders = [
