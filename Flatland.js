@@ -221,6 +221,7 @@ var Flatland = {};
         let i = Math.floor(Math.random() * colors.length);
         let j = Math.floor(Math.random() * colors.length);
         this.color = Flatland.lerp(Math.random(), colors[i], colors[j]);
+        this.identified = false;
     };
 
     Flatland.RandomShape.prototype.moveNPC = function () {

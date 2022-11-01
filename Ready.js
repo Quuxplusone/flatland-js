@@ -3,7 +3,10 @@ window.onload = function () {
     let cheatCtx = cheatCanvas.getContext('2d');
     let viewCanvas = window.document.getElementById("view");
     let viewCtx = viewCanvas.getContext('2d');
+    let scoreBox = window.document.getElementById("score");
     let pauseNPCs = false;
+    let shouldDrawCrosshairs = false;
+    let npcs = [];
     const max_speed = 10;
     const max_speeda = Math.PI / 30;
     const deceleration = 0.4;
@@ -17,7 +20,6 @@ window.onload = function () {
     let view = new Flatland.View(viewCanvas, nrays);
     let cheatView = new Flatland.CheatView(cheatCanvas);
 
-    // the square that's controlled by the user
     let player = {
         sides: 4,
         center: { x: cheatCanvas.width / 2, y: cheatCanvas.height / 2 },
@@ -26,6 +28,7 @@ window.onload = function () {
         speedx: 0,
         speedy: 0,
         speeda: 0,
+        score: 0,
     };
 
     window.document.onkeydown = function (e) {
@@ -47,8 +50,41 @@ window.onload = function () {
             player.speedy += acceleration * Math.sin(player.angle + Math.PI/2);
         } else if (e.keyCode == 32) { // pause
             pauseNPCs = !pauseNPCs;
+        } else if ('1' <= e.key && e.key <= '9') {
+            attemptShapeIdentification(e.key.charCodeAt(0) - 48);
+        } else if (e.key == '+') {
+            shouldDrawCrosshairs = !shouldDrawCrosshairs;
         } else if (e.key == '~') {
             cheatCanvas.hidden = !cheatCanvas.hidden;
+        }
+        console.log(e);
+    };
+
+    let attemptShapeIdentification = function (x) {
+        let ray = Flatland.getAndDrawRay({
+            origin: player.center,
+            angle: player.angle,
+            shapes: npcs,
+            borders: borders,
+            context: cheatCtx
+        });
+        if (ray.distance != Infinity) {
+            let npc = ray.shape;
+            let success = npc.isIsosceles ? (x == 2) :
+                          npc.sides >= 9 ? (x == 9) :
+                          (npc.sides == x);
+            if (success) {
+                // Identifying an inferior as an inferior gains few points.
+                // Identifying an superior as a superior gains many points.
+                if (!npc.identified) {
+                    player.score += Math.min(npc.sides, 9) + (npc.sides >= 6 ? 2 : 0);
+                    npc.identified = true;
+                }
+            } else {
+                // Identifying an inferior as a superior loses few points.
+                // Identifying an superior as an inferior loses many points.
+                player.score -= Math.min(npc.sides, 20) + (npc.isIsosceles ? 2 : 0) + (npc.sides >= 6 ? 2 : 0) + (Math.floor(Math.random() * 5 - 2));
+            }
         }
     };
 
@@ -180,7 +216,7 @@ window.onload = function () {
             moveNPCs();
         }
 
-        let npcs = [];
+        npcs = [];
         for (let g of grid) {
             if (g.resident) {
                 npcs.push(g.resident);
@@ -198,12 +234,17 @@ window.onload = function () {
             });
             rays.push(ray);
         }
-        view.draw(rays);
+        view.drawRays(rays);
+        if (shouldDrawCrosshairs) {
+            view.drawCrosshairs();
+        }
 
         cheatView.drawShape(player);
         for (let npc of npcs) {
             cheatView.drawShape(npc);
         }
+
+        scoreBox.innerHTML = player.score.toString() + " points";
     };
 
     for (let i = 0; i < 300; ++i) timeStep();

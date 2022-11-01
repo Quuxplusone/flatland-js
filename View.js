@@ -3,8 +3,9 @@
 
 Flatland.View = function (canvas, nrays) {
     this.ctx = canvas.getContext('2d');
+    this.width = canvas.width;
     this.height = canvas.height;
-    this.step = canvas.width / nrays;
+    this.nrays = nrays;
 };
 
 Flatland.View.prototype.getColor = function (ray) {
@@ -36,15 +37,23 @@ Flatland.View.prototype.getColor = function (ray) {
     return rgb;
 };
 
-Flatland.View.prototype.draw = function (rays) {
+Flatland.View.prototype.drawRays = function (rays) {
     // Each ray holds a 'distance', a 'shape', and a 'normal'.
     for (let ii = 0; ii < rays.length; ++ii) {
         this.ctx.beginPath();
-        this.ctx.moveTo(this.step * ii, 0);
-        this.ctx.lineTo(this.step * ii, this.height);
-        this.ctx.lineWidth = this.step;
+        this.ctx.moveTo(this.width * ii / this.nrays, 0);
+        this.ctx.lineTo(this.width * ii / this.nrays, this.height);
+        this.ctx.lineWidth = this.width / this.nrays;
         let rgb = this.getColor(rays[ii]);
         this.ctx.strokeStyle = 'rgb(' + rgb[0].toFixed(0) + ',' + rgb[1].toFixed(0) + ',' + rgb[2].toFixed(0) + ')';
         this.ctx.stroke();
     }
+};
+
+Flatland.View.prototype.drawCrosshairs = function () {
+    this.ctx.globalCompositeOperation = 'difference';
+    this.ctx.fillStyle = 'white';
+    this.ctx.fillRect(this.width / 2 - 1, this.height / 2 - 6, 2, 12);
+    this.ctx.fillRect(this.width / 2 - 6, this.height / 2 - 1, 5, 2);
+    this.ctx.fillRect(this.width / 2 + 1, this.height / 2 - 1, 5, 2);
 };
