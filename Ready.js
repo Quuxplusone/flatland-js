@@ -14,10 +14,9 @@ window.onload = function () {
     const angular_acceleration = Math.PI / 100;
     const angular_deceleration = Math.PI / 200;
     const nrays = 500;
-    const arc_size = Math.PI / 2;
-    const step = arc_size / nrays;
+    const viewArc = Math.PI / 2;
 
-    let view = new Flatland.View(viewCanvas, nrays);
+    let view = new Flatland.View(viewCanvas);
     let cheatView = new Flatland.CheatView(cheatCanvas);
 
     let player = {
@@ -227,7 +226,7 @@ window.onload = function () {
         for (let i = 0; i <= nrays; ++i) {
             let ray = Flatland.getAndDrawRay({
                 origin: player.center,
-                angle: player.angle + (i * step) - (arc_size / 2),
+                angle: player.angle + (i * viewArc / nrays) - (viewArc / 2),
                 shapes: npcs,
                 borders: borders,
                 context: cheatCtx

@@ -1,14 +1,13 @@
 // View is an object representing the context where we draw
 // what it looks like from the square's perspective.
 
-Flatland.View = function (canvas, nrays) {
-    this.ctx = canvas.getContext('2d');
-    this.width = canvas.width;
-    this.height = canvas.height;
-    this.nrays = nrays;
+Flatland.View = function (canvas) {
+    this.canvas = canvas;
+    this.ctx = canvas.getContext('2d', {willReadFrequently: true});
 };
 
-Flatland.View.prototype.getColor = function (ray) {
+Flatland.View.prototype.getColorOfRay = function (ray) {
+    // Each ray holds a 'distance', a 'shape', and a 'normal'.
     let fogColor = Flatland.lerp(0.25, [50,50,100], [240, 248, 255]);
     let daylightColor = [255, 255, 224];
     let specularLightColor = [255, 255, 255];
@@ -38,22 +37,38 @@ Flatland.View.prototype.getColor = function (ray) {
 };
 
 Flatland.View.prototype.drawRays = function (rays) {
-    // Each ray holds a 'distance', a 'shape', and a 'normal'.
-    for (let ii = 0; ii < rays.length; ++ii) {
-        this.ctx.beginPath();
-        this.ctx.moveTo(this.width * ii / this.nrays, 0);
-        this.ctx.lineTo(this.width * ii / this.nrays, this.height);
-        this.ctx.lineWidth = this.width / this.nrays;
-        let rgb = this.getColor(rays[ii]);
-        this.ctx.strokeStyle = 'rgb(' + rgb[0].toFixed(0) + ',' + rgb[1].toFixed(0) + ',' + rgb[2].toFixed(0) + ')';
-        this.ctx.stroke();
+    let w = this.canvas.width;
+    let h = this.canvas.height;
+    let nrays = rays.length;
+    for (let ray of rays) {
+        ray.color = this.getColorOfRay(ray);
     }
+    var imgData = this.ctx.createImageData(nrays, 1);
+    for (let i = 0; i < nrays; ++i) {
+        let sd = (500 / nrays) * Math.min(Math.max(0.01, rays[i].distance / 500), 1);
+        let data = [0,0,0,0];
+        for (let j = i - 4; j <= i + 4; ++j) {
+            if (0 <= j && j < nrays) {
+                let weight = Math.exp(-0.5 * Math.pow(Math.abs(j-i) / sd, 2)) / (sd * Math.sqrt(2 * Math.PI));
+                let rgb = rays[j].color;
+                data[0] += weight * rgb[0];
+                data[1] += weight * rgb[1];
+                data[2] += weight * rgb[2];
+                data[3] += weight;
+            }
+        }
+        imgData.data[4*i+0] = data[0] / data[3];
+        imgData.data[4*i+1] = data[1] / data[3];
+        imgData.data[4*i+2] = data[2] / data[3];
+        imgData.data[4*i+3] = 255;
+    }
+    createImageBitmap(imgData).then(img => this.ctx.drawImage(img, 0, 0, nrays, 1, 0, 0, w, h));
 };
 
 Flatland.View.prototype.drawCrosshairs = function () {
     this.ctx.globalCompositeOperation = 'difference';
     this.ctx.fillStyle = 'white';
-    this.ctx.fillRect(this.width / 2 - 1, this.height / 2 - 6, 2, 12);
-    this.ctx.fillRect(this.width / 2 - 6, this.height / 2 - 1, 5, 2);
-    this.ctx.fillRect(this.width / 2 + 1, this.height / 2 - 1, 5, 2);
+    this.ctx.fillRect(this.canvas.width / 2 - 1, this.canvas.height / 2 - 6, 2, 12);
+    this.ctx.fillRect(this.canvas.width / 2 - 6, this.canvas.height / 2 - 1, 5, 2);
+    this.ctx.fillRect(this.canvas.width / 2 + 1, this.canvas.height / 2 - 1, 5, 2);
 };
