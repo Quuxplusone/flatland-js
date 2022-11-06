@@ -8,9 +8,8 @@ Flatland.View = function (canvas) {
 
 Flatland.View.prototype.getColorOfRay = function (ray) {
     // Each ray holds a 'distance', a 'shape', and a 'normal'.
-    let fogColor = Flatland.lerp(0.25, [50,50,100], [240, 248, 255]);
+    let fogColor = [192, 198, 216];
     let daylightColor = [255, 255, 224];
-    let specularLightColor = [255, 255, 255];
 
     let angleToDaylight = Math.PI;  // Light comes from the East
     let angleToEye = ray.angle + Math.PI;
@@ -26,12 +25,12 @@ Flatland.View.prototype.getColorOfRay = function (ray) {
     let litShapeColor = Flatland.lerp(ambientFactor + diffuseDaylightFactor + diffuseHeadlampFactor, [0,0,0], ray.shape.color);
 
     let specularDaylightFactor = Math.pow(Math.max(0, Math.cos(angleToDaylight - angleOfReflection)), 15.0);
-    let specularHeadlampFactor = 0.5 * Math.pow(Math.max(0, Math.cos(angleToEye - angleOfReflection)), 30.0);
-    let specularDaylightComponent = Flatland.lerp(specularDaylightFactor, [0,0,0], daylightColor);
-    let specularHeadlampComponent = Flatland.lerp(specularHeadlampFactor, [0,0,0], [255,255,255]);
+    let specularHeadlampFactor = 0.25 * Math.pow(Math.max(0, Math.cos(angleToEye - angleOfReflection)), 30.0);
+    let specularDaylightComponent = Flatland.lerp(specularDaylightFactor * ray.shape.specularFactor, [0,0,0], daylightColor);
+    let specularHeadlampComponent = Flatland.lerp(specularHeadlampFactor * ray.shape.specularFactor, [0,0,0], [255,255,255]);
     litShapeColor = litShapeColor.map((x, i) => Math.min(255, x + specularDaylightComponent[i] + specularHeadlampComponent[i]));
 
-    let fogFactor = Math.min(Math.max(0.0, Math.pow(0.999, ray.distance)), 1.0);
+    let fogFactor = Math.min(Math.max(0.0, Math.pow(0.4, ray.distance / Flatland.meters(500))), 1.0);
     let rgb = Flatland.lerp(fogFactor, fogColor, litShapeColor);
     return rgb;
 };
@@ -45,7 +44,7 @@ Flatland.View.prototype.drawRays = function (rays) {
     }
     var imgData = this.ctx.createImageData(nrays, 1);
     for (let i = 0; i < nrays; ++i) {
-        let sd = (500 / nrays) * Math.min(Math.max(0.01, rays[i].distance / 500), 1);
+        let sd = (500 / nrays) * Math.min(Math.max(0.01, rays[i].distance / Flatland.meters(500)), 1);
         let data = [0,0,0,0];
         for (let j = i - 4; j <= i + 4; ++j) {
             if (0 <= j && j < nrays) {

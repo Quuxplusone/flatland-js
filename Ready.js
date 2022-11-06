@@ -7,10 +7,10 @@ window.onload = function () {
     let pauseNPCs = false;
     let shouldDrawCrosshairs = false;
     let npcs = [];
-    const max_speed = 10;
+    const max_speed = Flatland.metersPerSec(10);
     const max_speeda = Math.PI / 30;
-    const deceleration = 0.4;
-    const acceleration = 1.0;
+    const deceleration = Flatland.metersPerS2(0.4);
+    const acceleration = Flatland.metersPerS2(1.0);
     const angular_acceleration = Math.PI / 100;
     const angular_deceleration = Math.PI / 200;
     const nrays = 500;
@@ -23,9 +23,9 @@ window.onload = function () {
         sides: 4,
         center: { x: 0, y: 0 },
         angle: 0,  // also counts as `dir`: the player doesn't wiggle
-        radius: 12,
-        speedx: 0,
-        speedy: 0,
+        radius: Flatland.meters(12),
+        speedx: Flatland.metersPerSec(0),
+        speedy: Flatland.metersPerSec(0),
         speeda: 0,
         score: 0,
     };
@@ -92,7 +92,7 @@ window.onload = function () {
 
         player.center.x += player.speedx;
         player.center.y += player.speedy;
-        player.angle = Flatland.formatAngle(player.angle + player.speeda);
+        player.angle = Flatland.nearZeroAngle(player.angle + player.speeda);
 
         player.speedx = (player.speedx >= 0) ? Math.max(0, player.speedx - deceleration) : Math.min(0, player.speedx + deceleration);
         player.speedy = (player.speedy >= 0) ? Math.max(0, player.speedy - deceleration) : Math.min(0, player.speedy + deceleration);
@@ -100,84 +100,36 @@ window.onload = function () {
 
         // Re-center the player by force.
         if (player.center.x != 0 || player.center.y != 0) {
-            for (let g of grid) {
-                if (g.resident) {
-                    g.resident.center.x -= player.center.x;
-                    g.resident.center.y -= player.center.y;
-                }
-                g.center.x -= player.center.x;
-                g.center.y -= player.center.y;
+            for (let npc of npcs) {
+                npc.center.x -= player.center.x;
+                npc.center.y -= player.center.y;
             }
             player.center.x = 0;
             player.center.y = 0;
         }
     };
 
-    // array that contains the shapes floating around on the canvas
-    let grid = (function () {
-        var grid = [];
-        let length = 500 / 3;
-
-        let centery = -1 * (length / 2);
-        for (let ii = 0; ii < 5; ++ii) {
-            let centerx = -1 * (length / 2);
-            for (let jj = 0; jj < 5; ++jj) {
-                grid.push(new Flatland.Grid({
-                    center: { x: centerx - 250, y: centery - 250 },
-                    length: length,
-                }));
-                centerx += length;
-            }
-            centery += length;
-        }
-        return grid;
-    }());
-
-    // move resident of one grid to another
-    let swap = function (one, two) {
-        two.resident = one.resident;
-        two.resident.grid = two;
-        two.resident.prev_grid = one;
-        one.resident = false;
-        two.busy = true;
-        one.busy = true;
-    };
-
     let moveNPCs = function () {
-        for (let ii = 0; ii < grid.length; ii += 1) {
-            if (grid[ii].resident) {
-                grid[ii].resident.moveNPC();
-                if (!grid[ii].busy) {
-                   let random = Math.floor(Math.random() * 5);
-                   if (random === 0) {
-                        if (ii < 5) {
-                            grid[ii].resident = false;
-                        } else if (!grid[ii - 5].busy && !grid[ii - 5].resident) {
-                            swap(grid[ii], grid[ii - 5]);
-                        }
-                    } else if (random === 1) {
-                        if (ii % 5 === 0) {
-                            grid[ii].resident = false;
-                        } else if (!grid[ii - 1].busy && !grid[ii - 1].resident) {
-                            swap(grid[ii], grid[ii - 1]);
-                        }
-                    } else if (random === 3) {
-                        if (ii % 5 === 4) {
-                            grid[ii].resident = false;
-                        } else if (!grid[ii + 1].busy && !grid[ii + 1].resident) {
-                             swap(grid[ii], grid[ii + 1]);
-                        }
-                     } else if (random === 4) {
-                        if (ii > 19) {
-                            grid[ii].resident = false;
-                        } else if (!grid[ii + 5].busy && !grid[ii + 5].resident) {
-                            swap(grid[ii], grid[ii + 5]);
-                        }
-                    }
-                }
-            } else if (!grid[ii].busy && (ii < 5 || ii > 19 || ii % 5 === 0 || ii % 5 === 4) && Math.random() < 0.005) {
-                grid[ii].resident = new Flatland.RandomShape(grid[ii]);
-            }
+        // TODO: Aspirational, not yet implemented...
+        // Don't let any NPC get closer to the player than 3m.
+
+        let canDespawn = function (npc) {
+            return Flatland.getDistance(player.center, npc.center) > Flatland.meters(600) &&
+                   Math.abs(Flatland.nearZeroAngle(Flatland.getAngleTo(player.center, npc.center) - player.angle)) > (Math.PI / 2);
+        };
+
+        // Remove 10% of despawnable NPCs, then maybe spawn a new one.
+        npcs = npcs.filter(npc => !(canDespawn(npc) && Math.random() < 0.10));
+        if (npcs.length < 10) {
+            let a = 2 * Math.PI * Math.random();
+            let d = Math.abs(Flatland.nearZeroAngle(a - player.angle)) > (viewArc / 2) ? Flatland.meters(500) : Flatland.meters(1000);
+            let center = { x: d * Math.cos(a), y: d * Math.sin(a) };
+            let dir = a + Math.PI + (Math.random() - 0.5) * Math.PI/2;
+            npcs.push(new Flatland.RandomShape(center, dir));
+        }
+
+        for (let npc of npcs) {
+            npc.moveNPC(npcs);
         }
     };
 
@@ -190,13 +142,6 @@ window.onload = function () {
 
         if (!pauseNPCs) {
             moveNPCs();
-        }
-
-        npcs = [];
-        for (let g of grid) {
-            if (g.resident) {
-                npcs.push(g.resident);
-            }
         }
 
         var rays = [];
@@ -217,6 +162,7 @@ window.onload = function () {
         cheatView.drawShape(player);
         for (let npc of npcs) {
             cheatView.drawShape(npc);
+            cheatView.drawLine(npc.center, { x: npc.center.x + 20*Math.cos(npc.dir), y: npc.center.y + 20*Math.sin(npc.dir) });
         }
 
         scoreBox.innerHTML = player.score.toString() + " points";

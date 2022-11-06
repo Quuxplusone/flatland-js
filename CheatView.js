@@ -13,10 +13,11 @@ Flatland.CheatView.prototype.drawShape = function (shape) {
 
 Flatland.CheatView.prototype.drawLine = function (start, end) {
     let dim = Math.max(this.canvas.width, this.canvas.height);
-    let x1 = (dim / 500) * start.x + (this.canvas.width / 2);
-    let y1 = (dim / 500) * start.y + (this.canvas.height / 2);
-    let x2 = (dim / 500) * end.x + (this.canvas.width / 2);
-    let y2 = (dim / 500) * end.y + (this.canvas.height / 2);
+    let pixelsPerMeter = dim / Flatland.meters(1000);
+    let x1 = pixelsPerMeter * start.x + (this.canvas.width / 2);
+    let y1 = pixelsPerMeter * start.y + (this.canvas.height / 2);
+    let x2 = pixelsPerMeter * end.x + (this.canvas.width / 2);
+    let y2 = pixelsPerMeter * end.y + (this.canvas.height / 2);
     this.ctx.beginPath();
     this.ctx.moveTo(x1, y1);
     this.ctx.lineTo(x2, y2);
