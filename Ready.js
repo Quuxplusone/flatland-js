@@ -21,7 +21,7 @@ window.onload = function () {
 
     let player = {
         sides: 4,
-        center: { x: cheatCanvas.width / 2, y: cheatCanvas.height / 2 },
+        center: { x: 0, y: 0 },
         angle: 0,  // also counts as `dir`: the player doesn't wiggle
         radius: 12,
         speedx: 0,
@@ -56,17 +56,15 @@ window.onload = function () {
         } else if (e.key == '~') {
             cheatCanvas.hidden = !cheatCanvas.hidden;
         }
-        console.log(e);
     };
 
     let attemptShapeIdentification = function (x) {
-        let ray = Flatland.getAndDrawRay({
+        let ray = Flatland.castRay({
             origin: player.center,
             angle: player.angle,
-            shapes: npcs,
-            borders: borders,
-            context: cheatCtx
+            shapes: npcs
         });
+
         if (ray.distance != Infinity) {
             let npc = ray.shape;
             let success = npc.isIsosceles ? (x == 2) :
@@ -92,10 +90,8 @@ window.onload = function () {
         player.speedy = Math.min(Math.max(-max_speed, player.speedy), max_speed);
         player.speeda = Math.min(Math.max(-max_speeda, player.speeda), max_speeda);
 
-        player.center = {
-            x: Math.min(Math.max(1, player.center.x + player.speedx), cheatCanvas.width - 1),
-            y: Math.min(Math.max(1, player.center.y + player.speedy), cheatCanvas.height - 1)
-        };
+        player.center.x += player.speedx;
+        player.center.y += player.speedy;
         player.angle = Flatland.formatAngle(player.angle + player.speeda);
 
         player.speedx = (player.speedx >= 0) ? Math.max(0, player.speedx - deceleration) : Math.min(0, player.speedx + deceleration);
@@ -103,50 +99,31 @@ window.onload = function () {
         player.speeda = (player.speeda >= 0) ? Math.max(0, player.speeda - angular_deceleration) : Math.min(0, player.speeda + angular_deceleration);
 
         // Re-center the player by force.
-        if (player.center.x != cheatCanvas.width/2 || player.center.y != cheatCanvas.height/2) {
+        if (player.center.x != 0 || player.center.y != 0) {
             for (let g of grid) {
                 if (g.resident) {
-                    g.resident.center.x -= (player.center.x - cheatCanvas.width/2);
-                    g.resident.center.y -= (player.center.y - cheatCanvas.height/2);
+                    g.resident.center.x -= player.center.x;
+                    g.resident.center.y -= player.center.y;
                 }
-                g.center.x -= (player.center.x - cheatCanvas.width/2);
-                g.center.y -= (player.center.y - cheatCanvas.height/2);
+                g.center.x -= player.center.x;
+                g.center.y -= player.center.y;
             }
-            player.center.x = cheatCanvas.width/2;
-            player.center.y = cheatCanvas.height/2;
+            player.center.x = 0;
+            player.center.y = 0;
         }
     };
-
-    const borders = [
-        new Flatland.LineSegment({
-            start: { x: 0, y: 0 },
-            end: { x: cheatCanvas.width, y: 0 }
-        }),
-        new Flatland.LineSegment({
-            start: { x: 0, y: cheatCanvas.height },
-            end: { x: cheatCanvas.width, y: cheatCanvas.height }
-        }),
-        new Flatland.LineSegment({
-            start: { x: 0, y: 0 },
-            end: { x: 0, y: cheatCanvas.height }
-        }),
-        new Flatland.LineSegment({
-            start: { x: cheatCanvas.width, y: 0 },
-            end: { x: cheatCanvas.width, y: cheatCanvas.height }
-        })
-    ];
 
     // array that contains the shapes floating around on the canvas
     let grid = (function () {
         var grid = [];
-        let length = cheatCanvas.width / 3;
+        let length = 500 / 3;
 
         let centery = -1 * (length / 2);
         for (let ii = 0; ii < 5; ++ii) {
             let centerx = -1 * (length / 2);
             for (let jj = 0; jj < 5; ++jj) {
                 grid.push(new Flatland.Grid({
-                    center: { x: centerx, y: centery },
+                    center: { x: centerx - 250, y: centery - 250 },
                     length: length,
                 }));
                 centerx += length;
@@ -224,14 +201,13 @@ window.onload = function () {
 
         var rays = [];
         for (let i = 0; i <= nrays; ++i) {
-            let ray = Flatland.getAndDrawRay({
+            let ray = Flatland.castRay({
                 origin: player.center,
                 angle: player.angle + (i * viewArc / nrays) - (viewArc / 2),
-                shapes: npcs,
-                borders: borders,
-                context: cheatCtx
+                shapes: npcs
             });
             rays.push(ray);
+            cheatView.drawLine(player.center, ray.endpoint);
         }
         view.drawRays(rays);
         if (shouldDrawCrosshairs) {
