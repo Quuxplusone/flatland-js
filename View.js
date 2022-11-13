@@ -11,11 +11,11 @@ Flatland.View.prototype.getColorOfRay = function (ray) {
     let fogColor = [192, 198, 216];
     let daylightColor = [255, 255, 224];
 
-    let angleToDaylight = Math.PI;  // Light comes from the East
+    let angleToDaylight = 0;  // Light comes from the East
     let angleToEye = ray.angle + Math.PI;
 
     if (ray.distance === Infinity) {
-        return Flatland.lerp(0.5 * Math.pow(Math.cos(angleToEye - angleToDaylight), 3.0), fogColor, daylightColor);
+        return Flatland.lerp(0.3 * Math.pow(Math.cos(angleToDaylight - ray.angle), 3.0), fogColor, daylightColor);
     }
 
     let angleOfReflection = ray.normal - (angleToEye - ray.normal);
@@ -25,7 +25,7 @@ Flatland.View.prototype.getColorOfRay = function (ray) {
     let litShapeColor = Flatland.lerp(ambientFactor + diffuseDaylightFactor + diffuseHeadlampFactor, [0,0,0], ray.shape.color);
 
     let specularDaylightFactor = Math.pow(Math.max(0, Math.cos(angleToDaylight - angleOfReflection)), 15.0);
-    let specularHeadlampFactor = 0.25 * Math.pow(Math.max(0, Math.cos(angleToEye - angleOfReflection)), 30.0);
+    let specularHeadlampFactor = Math.min(Math.pow(0.4, ray.distance / Flatland.meters(100)), 0.25) * Math.pow(Math.max(0, Math.cos(angleToEye - angleOfReflection)), 30.0);
     let specularDaylightComponent = Flatland.lerp(specularDaylightFactor * ray.shape.specularFactor, [0,0,0], daylightColor);
     let specularHeadlampComponent = Flatland.lerp(specularHeadlampFactor * ray.shape.specularFactor, [0,0,0], [255,255,255]);
     litShapeColor = litShapeColor.map((x, i) => Math.min(255, x + specularDaylightComponent[i] + specularHeadlampComponent[i]));

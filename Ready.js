@@ -4,6 +4,7 @@ window.onload = function () {
     let viewCanvas = window.document.getElementById("view");
     let viewCtx = viewCanvas.getContext('2d');
     let scoreBox = window.document.getElementById("score");
+    let greetingBox = window.document.getElementById("greetings");
     let pauseNPCs = false;
     let shouldDrawCrosshairs = false;
     let npcs = [];
@@ -58,6 +59,201 @@ window.onload = function () {
         }
     };
 
+    let printGreeting = function (one, two) {
+        greetingBox.innerHTML = one + "<br>" + two;
+    };
+
+    let appropriateGreeting = function (x) {
+        let greetings = (x === 1) ? [
+            "Pardon me, ma'am.",
+            "Pardon me, ma'am!"
+        ] : (x === 2) ? [
+            "Out of the way, you Irregular!",
+            "Make way, Irregular!",
+            "One side, Irregular!"
+        ] : (x === 3) ? [
+            "Good morning, Mr. Triangle.",
+            "Good morning, Mr. Triangle!",
+            "How do you do, Mr. Triangle?",
+        ] : (x === 4) ? [
+            "Good morning, Mr. Square.",
+            "Good morning, fellow Square!",
+            "How do you do, fellow Square?",
+            "Pleased to meet you, Mr. Square.",
+            "Lovely day we're having, Mr. Square."
+        ] : (x === 5) ? [
+            "A fine morning to you, Mr. Pentagon!",
+            "How do you do, Mr. Pentagon?",
+            "Pleased to make your acquaintance, Mr. Pentagon."
+        ] : (x === 6) ? [
+            "A fine morning to you, Mr. Hexagon!",
+            "I beg your pardon, Mr. Hexagon!",
+            "Begging your pardon, Mr. Hexagon!",
+            "Have a lovely day, Mr. Hexagon.",
+        ] : (x === 7) ? [
+            "I beg your pardon, Mr. Heptagon!",
+            "Begging your pardon, Mr. Heptagon.",
+            "Begging your pardon, Mr. Heptagon!",
+            "How lovely to meet you, Mr. Heptagon."
+        ] : (x === 8) ? [
+            "Excuse me, Mr. Octagon.",
+            "Begging your pardon, sir.",
+            "Begging your pardon, Mr. Octagon!",
+            "Pardon my intrusion, sir!"
+        ] : (x === 9) ? [
+            "I beg your pardon, your excellency!",
+            "I beg your pardon, your illustriousness!",
+            "I beg your pardon, your lordship!"
+        ] : console.assert(false);
+        return greetings[Math.floor(Math.random() * greetings.length)];
+    };
+
+    let pleasedResponse = function (npc) {
+        let x = (npc.isIsosceles ? 2 : npc.sides >= 9 ? 9 : npc.sides);
+        let greetings = (x === 1) ? [
+            "With pleasure.",
+            "Thank you kindly, sir.",
+            "Thank you kindly, sir!",
+            "Pardon me, please, sir."
+        ] : (x === 2) ? [
+            "*grunt*",
+            "Apologies, Mr. Square.",
+            "Sorry, sir.",
+            "Sorry, sir!"
+        ] : (x === 3) ? [
+            "Good morning, Mr. Square.",
+            "Good morning, Mr. Square!",
+            "A fine morning it is, Mr. Square!",
+            "Pleased to meet you, Mr. Square!"
+        ] : (x === 4) ? [
+            "Good morning!",
+            "How do you do?",
+            "A fine morning it is!",
+            "Pleased to meet you."
+        ] : (x === 5) ? [
+            "Good morning!",
+            "How do you do?",
+            "A fine morning it is!",
+            "Pleased to meet you."
+        ] : (x === 6) ? [
+            "Good morning, Mr. Square.",
+            "Good morning, Mr. Square!",
+            "A pleasure, Mr. Square.",
+            "A pleasure, Mr. Square!",
+            "A fine morning, Mr. Square!"
+        ] : (x === 7) ? [
+            "Good morning, Mr. Square.",
+            "Don't mention it, Mr. Square.",
+            "How kind of you, Mr. Square.",
+        ] : (x === 8) ? [
+            "Don't mention it, Mr. Square.",
+            "How kind of you, Mr. Square.",
+            "It's nothing, Mr. Square."
+        ] : (x === 9) ? [
+            "Don't mention it, Mr. Square.",
+            "How kind of you, Mr. Square.",
+            "It's nothing, Mr. Square."
+        ] : console.assert(false);
+        return greetings[Math.floor(Math.random() * greetings.length)];
+    };
+
+    let insultedResponse = function (guess, npc) {
+        let x = (npc.isIsosceles ? 2 : npc.sides >= 9 ? 9 : npc.sides);
+        let messages = {
+            1: [
+                "*offended grunt*",
+                "Hm!",
+                "Hmph! Joker!",
+                "No need to be rude!"
+            ],
+            2: [
+                "I've never been so insulted!",
+                "Well, I never!",
+                "Perhaps your eye deceives you, sir.",
+                "Perhaps your eye deceives you, sir!",
+                "I'll have you know I am utterly Regular, sir!"
+            ],
+            3: [
+                "Well, I never!",
+                "Perhaps you have me confused with my father!",
+                "Perhaps you have me confused with my father, sir!",
+                "Perhaps your eye deceives you, sir.",
+                "Perhaps your eye deceives you, sir!"
+            ],
+            4: [
+                "Well, I never!",
+                "Are you joking?",
+                "Are you joking, sir?",
+                "Are you blind?",
+                "What are you on about?",
+                "What in Space are you on about?",
+                "Hmph! Foolishness!"
+            ],
+            5: [
+                "I've never been so insulted!",
+                "Hmph! Foolishness!",
+                "Are you insane, you Square?",
+                "Are you blind, you Square?",
+                "Out of the way, you Square!",
+                "Stop your blathering this instant!"
+            ],
+            6: [
+                "I've never been so insulted!",
+                "Hmph! Good morning!",
+                "*silent disdain*"
+            ],
+            7: [
+                "Are you mocking me, Square?",
+                "What a fool that Square is!",
+                "*smirk*"
+            ],
+            8: [
+                "Well, I never!",
+                "How rude!",
+                "A Square should have better manners!"
+            ],
+            9: [
+                "You're mistaken, sir.",
+                "Your eye deceives you, sir!",
+                "'Morning, Square!",
+                "*smirk*"
+            ],
+            10: [
+                "You're mistaken, sir.",
+                "How rude!",
+                "Are you mocking me, Square?",
+                "What a fool!",
+                "'Morning, Hexagon!",
+                "'Morning, Heptagon!",
+                "'Morning, Octagon!",
+                "*smirk*",
+                "*annoyed grunt*"
+            ],
+            11: [
+                "Well, I never!",
+                "Perhaps you have me confused with my son!",
+                "Perhaps you have me confused with my son, sir!",
+                "Perhaps your eye deceives you, sir.",
+                "Perhaps your eye deceives you, sir!"
+            ],
+        };
+        let table = [
+            [0,0,0,0,0,0,0,0,0,0],
+            [0,0,1,1,4,4,4,5,5,5],
+            [0,8,0,2,4,4,4,5,5,5],
+            [0,1,9,0,3,4,6,5,5,5],
+            [0,1,9,9,0,3,6,6,5,5],
+            [0,1,10,7,11,0,3,6,6,5],
+            [0,1,10,10,9,11,0,6,6,5],
+            [0,1,10,10,6,4,7,0,6,6],
+            [0,1,10,10,6,6,4,7,0,6],
+            [0,1,10,10,6,6,6,7,7,0],
+        ];
+        let idx = table[guess][x];
+        let greetings = messages[idx];
+        return greetings[Math.floor(Math.random() * greetings.length)];
+    };
+
     let attemptShapeIdentification = function (x) {
         let ray = Flatland.castRay({
             origin: player.center,
@@ -76,11 +272,13 @@ window.onload = function () {
                 if (!npc.identified) {
                     player.score += Math.min(npc.sides, 9) + (npc.sides >= 6 ? 2 : 0);
                     npc.identified = true;
+                    printGreeting(appropriateGreeting(x), pleasedResponse(npc));
                 }
             } else {
                 // Identifying an inferior as a superior loses few points.
                 // Identifying an superior as an inferior loses many points.
                 player.score -= Math.min(npc.sides, 20) + (npc.isIsosceles ? 2 : 0) + (npc.sides >= 6 ? 2 : 0) + (Math.floor(Math.random() * 5 - 2));
+                printGreeting(appropriateGreeting(x), insultedResponse(x, npc));
             }
         }
     };
