@@ -94,25 +94,32 @@ Flatland.CheatView = function (canvas) {
     this.ctx = canvas.getContext('2d');
 };
 
-Flatland.CheatView.prototype.drawShape = function (shape) {
+Flatland.CheatView.prototype.drawActiveShape = function (shape) {
     for (let line of Flatland.getLineSegments(shape)) {
-        this.drawLine(line.start, line.end);
+        this.drawLine(line.start, line.end, 2);
     }
 };
 
-Flatland.CheatView.prototype.drawFixedShape = function (shape) {
-    for (let line of Flatland.getLineSegments(shape)) {
-        this.drawLine(closestPoint(line.start), closestPoint(line.end));
+Flatland.CheatView.prototype.drawFixedShape = function (shape, snapTogether) {
+    if (snapTogether) {
+        for (let line of Flatland.getLineSegments(shape)) {
+            this.drawLine(closestPoint(line.start), closestPoint(line.end), 1);
+        }
+    } else {
+        for (let line of Flatland.getLineSegments(shape)) {
+            this.drawLine(line.start, line.end, 1);
+        }
     }
 };
 
-Flatland.CheatView.prototype.drawLine = function (start, end) {
+Flatland.CheatView.prototype.drawLine = function (start, end, width) {
     let dim = Math.max(this.canvas.width, this.canvas.height);
     let pixelsPerMeter = dim / Flatland.meters(1000);
     let x1 = pixelsPerMeter * start.x + (this.canvas.width / 2);
     let y1 = pixelsPerMeter * start.y + (this.canvas.height / 2);
     let x2 = pixelsPerMeter * end.x + (this.canvas.width / 2);
     let y2 = pixelsPerMeter * end.y + (this.canvas.height / 2);
+    this.ctx.lineWidth = width;
     this.ctx.beginPath();
     this.ctx.moveTo(x1, y1);
     this.ctx.lineTo(x2, y2);
@@ -170,14 +177,13 @@ Flatland.getPoints = function (shape) {
         p = ret[ret.length-1];
         ret.push({ x: p.x + sc * v.x, y: p.y + sc * v.y });
       }
-      if (shape.flip) {
-        for (let j = 0; j < ret.length; ++j) {
-          ret[j] = { x: ret[j].x, y: -ret[j].y };
-        }
-      }
+      
       for (let j = 0; j < ret.length; ++j) {
         ret[j].x -= 106.2983481374135;
         ret[j].y -= 70.17033416883338;
+        if (shape.flip) {
+            ret[j].x = -ret[j].x;
+        }
         ret[j] = Flatland.rotate(ret[j], shape.angle);
         ret[j].x += shape.x;
         ret[j].y += shape.y;
@@ -233,6 +239,9 @@ window.onload = function () {
     let cheatCtx = cheatCanvas.getContext('2d');
 
     let cheatView = new Flatland.CheatView(cheatCanvas);
+    let fixedTiles = [];
+    let snapTogether = false;
+
     let tile = {
       x: 100,
       y: 100,
@@ -240,123 +249,7 @@ window.onload = function () {
       angle: 0.0,
       flip: false,
     };
-        let ypos = (tile.y + 420) / (420+250);
-        ypos = Math.min(Math.max(0.0, ypos), 1.0);
-        tile.k = (0.5 * ypos) + (0.8333 * (1-ypos));
-
-    let fixedTiles = [
-    {
-        "x": 100,
-        "y": 100,
-        "k": 1,
-        "angle": -2.0943951023931935,
-        "flip": true
-    },
-    {
-        "x": 100,
-        "y": 100,
-        "k": 1,
-        "angle": 2.220446049250313e-16,
-        "flip": true
-    },
-    {
-        "x": 250,
-        "y": -170,
-        "k": 1,
-        "angle": -3.14159265358979,
-        "flip": true
-    },
-    {
-        "x": 250,
-        "y": -170,
-        "k": 1,
-        "angle": 1.0471975511965967,
-        "flip": true
-    },
-    {
-        "x": 240,
-        "y": -340,
-        "k": 1,
-        "angle": 1.0471975511965967,
-        "flip": true
-    },
-    {
-        "x": -220,
-        "y": -70,
-        "k": 1,
-        "angle": 5.2359877559829835,
-        "flip": false
-    },
-    {
-        "x": -50,
-        "y": -150,
-        "k": 1,
-        "angle": -1.0471975511965967,
-        "flip": true
-    },
-    {
-        "x": 100,
-        "y": -250,
-        "k": 1,
-        "angle": -1.0471975511965967,
-        "flip": true
-    },
-    {
-        "x": -210,
-        "y": 110,
-        "k": 1,
-        "angle": -1.0471975511965967,
-        "flip": true
-    },
-    {
-        "x": -360,
-        "y": 200,
-        "k": 1,
-        "angle": -1.0471975511965967,
-        "flip": true
-    },
-    {
-        "x": -210,
-        "y": 110,
-        "k": 1,
-        "angle": 1.047197551196597,
-        "flip": true
-    },
-    {
-        "x": 100,
-        "y": 100,
-        "k": 1,
-        "angle": 2.0943951023931935,
-        "flip": true
-    },
-    {
-        "x": 260,
-        "y": 360,
-        "k": 1,
-        "angle": 5.2359877559829835,
-        "flip": true
-    },
-    {
-        "x": 410,
-        "y": -90,
-        "k": 1,
-        "angle": 1.047197551196597,
-        "flip": false
-    },
-    {
-        "x": 400,
-        "y": 90,
-        "k": 1,
-        "angle": 1.047197551196597,
-        "flip": true
-    }
-];
-for (let i=0; i < fixedTiles.length; ++i) {
-  let ypos = (fixedTiles[i].y + 420) / 670;
-  ypos = Math.min(Math.max(0.0, ypos), 1.0);
-  fixedTiles[i].k = (0.5 * ypos) + (0.83333 * (1 - ypos));
-}
-fixedTiles = [];
+    tile.k = recomputeTileK(tile);
 
     window.document.onkeydown = function (e) {
         if (e.key == 'q') { // turn left
@@ -384,7 +277,7 @@ fixedTiles = [];
             tile.x += adjust.x;
             tile.y += adjust.y;
             console.log(tile);
-        } else if (e.key == ' ') { // commit
+        } else if (e.key == ' ' || e.keyCode == 13) { // commit
             fixedTiles.push(tile);
             console.log(fixedTiles);
             tile = {
@@ -395,8 +288,11 @@ fixedTiles = [];
               flip: tile.flip,
             };
             recomputeFixedPoints(fixedTiles);
+        } else if (e.key == '!') { // snap together
+            snapTogether = !snapTogether;
+        } else {
+            console.log("keydown:", e.key, e.keyCode);
         }
-
         tile.k = recomputeTileK(tile);
     };
 
@@ -404,9 +300,9 @@ fixedTiles = [];
         // clear the canvases before doing anything
         cheatCtx.clearRect(0, 0, cheatCanvas.width, cheatCanvas.height);
         for (let i = 0; i < fixedTiles.length; ++i) {
-          cheatView.drawFixedShape(fixedTiles[i]);
+          cheatView.drawFixedShape(fixedTiles[i], snapTogether);
         }
-        cheatView.drawShape(tile);
+        cheatView.drawActiveShape(tile);
     };
     window.setInterval(timeStep, 100);
 };
