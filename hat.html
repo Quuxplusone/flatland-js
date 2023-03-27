@@ -4,24 +4,29 @@
     <meta charset="UTF-8">
     <title>Einstein's Hat</title>
     <script type="text/javascript" src="./Hat.js"></script>
+    <style>
+      canvas { border: 2px solid; margin: 3px; }
+      canvas[data-active=true] { border: 5px solid; margin: 0px; }
+    </style>
   </head>
   <body>
     <table>
       <tr><td rowspan="2">
-        <canvas id="escherView" width="500" height="500" style="border: 2px solid;"></canvas>
+        <canvas id="escherView" width="1200" height="800"></canvas>
       </td><td>
-        <canvas id="singleTopView" width="200" height="200" style="border: 2px solid;"></canvas>
+        <canvas id="singleTopView" width="200" height="200"></canvas>
       </td></tr>
       <tr><td>
-        <canvas id="singleBottomView" width="200" height="200" style="border: 2px solid;"></canvas>
+        <canvas id="singleBottomView" width="200" height="200" data-active="true"></canvas>
       </td></tr>
     </table>
     <h2>Instructions</h2>
     <p>The main view shows a tiling that deforms from tile A at the top to tile B at the bottom.
     <p>The upper right view shows tile A in isolation. The lower right view shows tile B.
-    <p>Click either tile to edit it:
+    <p>Click either tile to edit it. The heavy black border indicates whether you're editing the
+        upper tile, the lower tile, or both simultaneously.
     <ul>
-      <li><code>a</code> and <code>s</code> to change its side-length ratio</li>
+      <li><code>a</code> and <code>s</code> to decrease (increase) its side-length ratio</li>
     </ul>
     <p>Click the main window to place new tiles (currently disabled):
     <ul>
@@ -31,7 +36,10 @@
       <li><code>j</code> to jiggle the piece into alignment with its neighbors</li>
     </ul>
     <ul>
+      <li><code>+</code> and <code>-</code> to zoom in or zoom out</li>
       <li><code>!</code> to seamlessly snap together all displayed corners (or again to unsnap them)</li>
+      <li><code>#</code> to display a superimposed triangular grid</li>
+      <li><code>f</code> to display flipped tiles with a bold outline</li>
     </ul>
   </body>
 </html>

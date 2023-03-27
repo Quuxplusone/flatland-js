@@ -1,63 +1,83 @@
 
 var Flatland = {};
 
-Flatland.getDistance = function (p1, p2) {
-  return Math.hypot(p2.x - p1.x, p2.y - p1.y);
+// We need a data structure that can:
+// - Map each [i,j] to an identifier ID
+// - For a given [i,j], look up all other [i,j] with the same ID
+// We'll store an array of arrays `A[i][j]=ID` and a dict of lists D[ID]=[[i1,j1],[i2,j2],...].
+//
+Flatland.cornerStructure = {
+  A: [],
+  D: {},
+  nextId: 1,
+
+  countTilesAtCornerPoint: function (i, j) {
+    let id = this.A[i][j];
+    console.assert(id >= 1);
+    return this.D[id].length;
+  },
+
+  getSmoothedCornerPoint: function (fixedTiles, i, j) {
+    // Get the current position of fixedTiles[i].points[j], as the average
+    // of all the points associated with that corner in our data structure.
+    let id = this.A[i][j];
+    console.assert(id >= 1);
+    let pts = this.D[id];
+    let x = 0;
+    let y = 0;
+    for (let p of pts) {
+      x += fixedTiles[p.i].points[p.j].x;
+      y += fixedTiles[p.i].points[p.j].y;
+    }
+    return { x: x / pts.length, y: y / pts.length };
+  },
+
+  memorizeCorners: function (fixedTiles) {
+    console.log("memorizeCorners");
+    let allpoints = [];
+    for (let i = 0; i < fixedTiles.length; ++i) {
+      let pts = Flatland.getPoints(fixedTiles[i]);
+      let arr = [];
+      for (let j = 0; j < pts.length; ++j) {
+        allpoints.push({ i: i, j: j, x: pts[j].x, y: pts[j].y });
+        arr.push(0);
+      }
+      if (i >= this.A.length) {
+        this.A.push(arr);
+      }
+    }
+
+    for (let p of allpoints) {
+      // For each key, map it to a unique "group" identifier.
+      if (this.A[p.i][p.j] !== 0) {
+        // Cool, do nothing
+      } else {
+        // Search for any other points close to p.
+        // They should all have the same group identifier.
+        let foundId = 0;
+        for (let p2 of allpoints) {
+          if (p !== p2 && Flatland.getDistance(p, p2) < 0.1) {
+            let id2 = this.A[p2.i][p2.j];
+            if (id2 !== 0) {
+              console.assert(foundId == 0 || foundId == id2);
+              foundId = id2;
+            }
+          }
+        }
+        if (foundId === 0) {
+          foundId = this.nextId++;
+          this.D[foundId] = [];
+        }
+        this.A[p.i][p.j] = foundId;
+        this.D[foundId].push({ i: p.i, j: p.j });
+      }
+    }
+    console.log(this);
+  },
 };
 
-let fixedPoints = [];
-let closestPoint = function (p) {
-  let minPt = p;
-  let minDist = 10000;
-  for (let i = 0; i < fixedPoints.length; ++i) {
-    let d = Flatland.getDistance(p, fixedPoints[i]);
-    if (d < minDist) {
-      minPt = fixedPoints[i];
-      minDist = d;
-    }
-  }
-  return minPt;
-};
-let recomputeFixedPoints = function (fixedTiles) {
-  let allpoints = [];
-  for (let i = 0; i < fixedTiles.length; ++i) {
-    let points = Flatland.getPoints(fixedTiles[i]);
-    for (let j = 0; j < points.length; ++j) {
-      allpoints.push(points[j]);
-    }
-  }
-  // Now group the points that are close together.
-  let groups = [];
-  for (let i = 0; i < allpoints.length; ++i) {
-    let done = false;
-    for (let j = 0; j < groups.length; ++j) {
-      for (let k = 0; k < groups[j].length; ++k) {
-        if (Flatland.getDistance(allpoints[i], groups[j][k]) < 0.1) {
-          groups[j].push(allpoints[i]);
-          done = true;
-          break;
-        }
-      }
-      if (done) {
-        break;
-      }
-    }
-    if (!done) {
-      groups.push([ allpoints[i] ]);
-    }
-  }
-  // Now average each group of points.
-  fixedPoints = [];
-  for (let i = 0; i < groups.length; ++i) {
-    let g = groups[i];
-    let sumX = 0;
-    let sumY = 0;
-    for (let j = 0; j < g.length; ++j) {
-      sumX += g[j].x;
-      sumY += g[j].y;
-    }
-    fixedPoints.push({ x: sumX / g.length, y: sumY / g.length });
-  }
+Flatland.getDistance = function (p1, p2) {
+  return Math.hypot(p2.x - p1.x, p2.y - p1.y);
 };
 
 Flatland.getArea = function (ps) {
@@ -95,10 +115,15 @@ Flatland.getCentroid = function (ps) {
 };
 
 Flatland.View = function (canvas, unitCells) {
-    this.canvas = canvas;
-    this.ctx = canvas.getContext('2d');
-    this.scale = this.canvas.height / unitCells;
-    this.unitCells = unitCells;
+  this.canvas = canvas;
+  this.ctx = canvas.getContext('2d');
+  this.scale = this.canvas.height / unitCells;
+  this.unitCells = unitCells;
+};
+
+Flatland.View.prototype.setUnitCells = function (unitCells) {
+  this.scale = this.canvas.height / unitCells;
+  this.unitCells = unitCells;
 };
 
 Flatland.View.prototype.recomputeTileK = function (tile, bottomk, topk) {
@@ -120,34 +145,39 @@ Flatland.View.prototype.clear = function () {
 };
 
 Flatland.View.prototype.drawActiveShape = function (shape) {
-    for (let line of Flatland.getLineSegments(shape)) {
-        this.drawLine(line.start, line.end, 2);
-    }
+  for (let line of Flatland.getLineSegments(shape)) {
+    this.drawLine(line.start, line.end, 2);
+  }
 };
 
-Flatland.View.prototype.drawFixedShape = function (shape, snapTogether) {
-    if (snapTogether) {
-        for (let line of Flatland.getLineSegments(shape)) {
-            this.drawLine(closestPoint(line.start), closestPoint(line.end), 1);
-        }
-    } else {
-        for (let line of Flatland.getLineSegments(shape)) {
-            this.drawLine(line.start, line.end, 1);
-        }
+Flatland.View.prototype.drawFixedShape = function (fixedTiles, i, snapTogether, weight) {
+  let n = fixedTiles[i].points.length;
+  if (snapTogether) {
+    for (let j = 0; j < n; ++j) {
+      let start = Flatland.cornerStructure.getSmoothedCornerPoint(fixedTiles, i, j);
+      let end = Flatland.cornerStructure.getSmoothedCornerPoint(fixedTiles, i, (j + 1) % n);
+      this.drawLine(start, end, weight);
     }
+  } else {
+    for (let j = 0; j < n; ++j) {
+      let start = fixedTiles[i].points[j];
+      let end = fixedTiles[i].points[(j + 1) % n];
+      this.drawLine(start, end, weight);
+    }
+  }
 };
 
 Flatland.View.prototype.drawLine = function (start, end, width) {
-    let x1 = this.scale * start.x + (this.canvas.width / 2);
-    let y1 = this.scale * start.y + (this.canvas.height / 2);
-    let x2 = this.scale * end.x + (this.canvas.width / 2);
-    let y2 = this.scale * end.y + (this.canvas.height / 2);
-    this.ctx.lineWidth = width;
-    this.ctx.beginPath();
-    this.ctx.moveTo(x1, y1);
-    this.ctx.lineTo(x2, y2);
-    this.ctx.closePath();
-    this.ctx.stroke();
+  let x1 = this.scale * start.x + (this.canvas.width / 2);
+  let y1 = this.scale * start.y + (this.canvas.height / 2);
+  let x2 = this.scale * end.x + (this.canvas.width / 2);
+  let y2 = this.scale * end.y + (this.canvas.height / 2);
+  this.ctx.lineWidth = width;
+  this.ctx.beginPath();
+  this.ctx.moveTo(x1, y1);
+  this.ctx.lineTo(x2, y2);
+  this.ctx.closePath();
+  this.ctx.stroke();
 };
 
 Flatland.View.prototype.drawCentroidPoint = function (tile) {
@@ -157,19 +187,21 @@ Flatland.View.prototype.drawCentroidPoint = function (tile) {
     let y1 = pixelsPerMeter * p.y + (this.canvas.height / 2);
     this.ctx.lineWidth = 1;
     this.ctx.beginPath();
-    this.ctx.arc(x1, y1, 5, 0, 2*Math.PI, false);
+    this.ctx.arc(x1, y1, 3, 0, 2*Math.PI, false);
     this.ctx.closePath();
     this.ctx.stroke();
 
     let ps = Flatland.getPoints(tile);
-    this.drawLine(ps[0], ps[3], 0.5);
-    this.drawLine(ps[4], ps[8], 0.5);
-    this.drawLine(ps[8], ps[12], 0.5);
     let c = Flatland.getCentroid([ps[0], ps[4], ps[8]]);
+    let c2 = Flatland.getCentroid([ps[10], ps[11]]);
+    let c3 = Flatland.getCentroid([c, ps[6]]);
+    this.drawLine(ps[0], ps[3], 0.5);
+    this.drawLine(ps[8], ps[12], 0.5);
+    this.drawLine(ps[4], c3, 0.5);
+    this.drawLine(ps[8], c3, 0.5);
     this.drawLine(ps[3], c, 0.5);
     this.drawLine(ps[6], c, 0.5);
     this.drawLine(ps[12], c, 0.5);
-    let c2 = Flatland.getCentroid([ps[10], ps[11]]);
     this.drawLine(ps[8], c2, 0.5);
 };
 
@@ -230,9 +262,9 @@ Flatland.getPoints = function (shape) {
   for (let j = 0; j < ret.length; ++j) {
     if (!shape.flip) {
       ret[j].x = -ret[j].x;
-      ret[j] = Flatland.rotate(ret[j], (shape.angle - 4) * Math.PI / 6);
+      ret[j] = Flatland.rotate(ret[j], -shape.k/2 + (shape.angle - 3) * Math.PI / 6);
     } else {
-      ret[j] = Flatland.rotate(ret[j], (shape.angle + 4) * Math.PI / 6);
+      ret[j] = Flatland.rotate(ret[j], -shape.k/2 + (shape.angle + 5) * Math.PI / 6);
     }
   }
   let c = Flatland.getCentroid(ret);
@@ -286,71 +318,75 @@ Flatland.jiggleIntoPlace = function (fixedTiles, tile) {
   };
 };
 
+Flatland.jiggleFixedTile = function (fixedTiles, i) {
+  let adjustX = 0.0;
+  let adjustY = 0.0;
+  let adjustN = 1;
+  for (let j = 0; j < fixedTiles[i].points.length; ++j) {
+    let p = fixedTiles[i].points[j];
+    let idealp = Flatland.cornerStructure.getSmoothedCornerPoint(fixedTiles, i, j);
+    let weight = Flatland.cornerStructure.countTilesAtCornerPoint(i, j);
+    adjustX += (weight - 1) * (idealp.x - p.x);
+    adjustY += (weight - 1) * (idealp.y - p.y);
+    adjustN += (weight - 1);
+  }
+  return {
+    x: adjustX / adjustN,
+    y: adjustY / adjustN,
+  };
+};
+
 function initialHats() {
-  let hats = [
-    { x:  0, y:  0, angle:  6, flip: true },
-    { x:  0, y:  3, angle:  6, flip: false },
-    { x:  0, y:  5, angle: 10, flip: false },
-    { x:  0, y:  9, angle:  2, flip: false },
-    { x:  0, y: 12, angle:  0, flip: false },
-    { x:  0, y: 14, angle:  8, flip: false },
-    { x:  1, y:  1, angle:  8, flip: false },
-    { x:  1, y:  4, angle: 10, flip: false },
-    { x:  1, y:  7, angle:  0, flip: false },
-    { x:  1, y: 10, angle:  0, flip: true },
-    { x:  1, y: 12, angle:  2, flip: false },
-    { x:  2, y:  0, angle:  4, flip: false },
-    { x:  2, y:  2, angle:  8, flip: false },
-    { x:  2, y:  5, angle:  8, flip: true },
-    { x:  2, y:  7, angle:  2, flip: false },
-    { x:  2, y:  9, angle:  6, flip: false },
-    { x:  2, y: 13, angle:  2, flip: false },
-    { x:  3, y:  0, angle:  6, flip: false },
-    { x:  3, y:  2, angle:  6, flip: false },
-    { x:  3, y:  4, angle: 10, flip: false },
-    { x:  3, y:  8, angle: 10, flip: false },
-    { x:  3, y: 11, angle:  4, flip: false },
-    { x:  4, y:  1, angle:  2, flip: false },
-    { x:  4, y:  1, angle:  2, flip: false },
-    { x:  4, y:  3, angle: 10, flip: false },
-    { x:  4, y:  6, angle:  8, flip: false },
-    { x:  4, y: 10, angle:  0, flip: false },
-    { x:  4, y: 12, angle:  0, flip: false },
-    { x:  5, y:  2, angle: 10, flip: false },
-    { x:  5, y:  5, angle:  0, flip: false },
-    { x:  5, y:  7, angle:  0, flip: false },
-    { x:  5, y:  9, angle: 10, flip: true },
-    { x:  5, y: 12, angle:  2, flip: false },
-    { x:  5, y: 14, angle:  6, flip: false },
-    { x:  6, y:  0, angle:  8, flip: false },
-    { x:  6, y:  3, angle:  8, flip: true },
-    { x:  6, y:  5, angle:  2, flip: false },
-    { x:  6, y:  7, angle: 10, flip: false },
-    { x:  6, y: 10, angle:  4, flip: false },
-    { x:  6, y: 13, angle: 10, flip: false },
-    { x:  7, y:  0, angle:  6, flip: false },
-    { x:  7, y:  2, angle: 10, flip: false },
-    { x:  7, y:  6, angle:  2, flip: false },
-    { x:  7, y:  9, angle:  0, flip: false },
-    { x:  7, y: 11, angle:  8, flip: false },
-    { x:  7, y: 14, angle:  4, flip: true },
-    { x:  8, y:  1, angle: 10, flip: false },
-    { x:  8, y:  4, angle:  0, flip: false },
-    { x:  8, y:  7, angle:  0, flip: true },
-    { x:  8, y:  9, angle:  2, flip: false },
-    { x:  8, y: 11, angle:  6, flip: false },
-    { x:  8, y: 13, angle:  6, flip: false },
-    { x:  9, y:  2, angle:  8, flip: true },
-    { x:  9, y:  4, angle:  2, flip: false },
-    { x:  9, y:  6, angle:  6, flip: false },
-    { x:  9, y: 10, angle:  2, flip: false },
-    { x:  9, y: 12, angle: 10, flip: false },
-    { x: 10, y:  1, angle: 10, flip: false },
-    { x: 10, y:  5, angle: 10, flip: false },
-    { x: 10, y:  8, angle:  4, flip: false },
-    { x: 10, y: 11, angle: 10, flip: false },
-    { x: 10, y: 14, angle:  0, flip: false },
-  ];
+  let hats = {
+    0: ".6.10...10..4.8...0.8..8f.2.6..4..6..4..0f.2.6.6.",
+    1: "2.10..8...0.0.8.6f..6.10...10..4.8..4f.6.6...2.10..",
+    2: ".2..0.0.10f..2.6..8..10..8..4f.6.6.6...2..4..2..0.",
+    3: "..0f.2.10..4..10..4.8..4f.6.6...2.10..4...4.0..0f.2.",
+    4: ".6...2..0.8..4f.6.6.6...2..4..2..0.8.2f..2.6...2",
+    5: "10..4..0f.2.6.6...2.10..4...4.0..0f.2.6..4..10..4..",
+    6: ".4f.6.6...2.10..4..10..0.8.2f..2.6...2..4.8...0.0.",
+    7: "6...2..4..2..0.8..8f.2.6..4..10..4...4.0.0.10f..2.",
+    8: "..4...4.0..0f.2.6.10...10..4.8...0.8.2f..2.10..4..10",
+    9: ".0.8.2f..2.6...2.10..8...0.0.8.6f..6..4..2..0.8..",
+    10: ".2.6..4..10..4..10..0.0.10f..2.6..8...4.0..0f.2.6.6",
+    11: "..10..4.8...0.8..8f.2.10..4..10..4.8.2f..2.6...2.10.",
+    12: "8...0.0.8.6f..6.10...2..0.8..4f.6.6..4..10..4..10..",
+    13: ".0.10f..2.6..8..10..0..0f.2.6.6...2..4.8...0.8..8f.",
+    14: ".10..4..10..4.8..8f.2.6...2.10..4...4.0.8.6f..6.10..",
+    15: "...0.8..4f.6.6.10...10..4..10..0.8.2f..2.6..8..10..8",
+    16: "8.6f..6.6...2.10..8...0.8..8f.2.6..4..10..4.8...0.",
+    17: "6..8..10..4..10..0.8.6f..6.10...10..4.8...0.0.0.10f..",
+    18: "..4.8...0.8..8f.2.6..8..10..8...0.0.0.10f..2.10..4.",
+    19: ".4.0.8.6f..6.10...10..4.8...0.0.10f..2.10..4..10..0.8",
+    20: "2f..2.6..8..10..8...0.0.0.10f..2..4..2..0.8..8f.2.6",
+    21: ".4..10..4.8...0.0.10f..2.10..4...4.0..0f.2.6.10...10..",
+    22: "4.8...0.0.0.10f..2..4..2..0.8.2f..2.6...2.10..8...0",
+    23: ".0.0.10f..2.10..4...4.0..0f.2.6..4..10..4..2..0.0.10f",
+    24: ".2.10..4..10..0.8.2f..2.6...2..4.8...0.0..0f.2.10..4",
+    25: "..2..0.8..8f.2.6..4..10..4...4.0.0.10f..2.6...2..0.",
+    26: "0..0f.2.6.10...10..4.8...0.8.2f..2.10..4..10..4..0f.2.",
+    27: "2.6...2.10..8...0.0.8.6f..6..4..2..0.8..4f.6.6...2",
+    28: ".10..4..10..0.0.10f..2.6..8...4.0..0f.2.6.6...2..4.",
+    29: "...0.8..8f.2.10..4..10..4.8.2f..2.6...2.10..4...4.0.",
+    30: "8.6f..6.10...2..0.8..4f.6.6..4..10..4..10..0.8.2f..2",
+    31: "6..8..10..0..0f.2.6.6...2..4.8...0.8..8f.2.6..4..10",
+    32: "..4.8..8f.2.6...2.10..4...4.0.8.6f..6.10...10..4.8..",
+    33: "4f.6.6.10...10..4..10..0.8.2f..2.6..8..10..8...0.0.8.",
+    34: "...2.10..8...0.8..8f.2.6..4..10..4.8...0.0.10f..2.6",
+    35: ".4..10..0.8.6f..6.10...10..4.8...0.0.8.6f..10..4..10..",
+    36: "0.8..8f.2.6..8..10..8...0.0.0.10f..2.6..8...0.8..4f",
+    37: "2.6.10...10..4.8...0.0.10f..2.10..4..10..4.8.6f..6.6.",
+    38: ".2.10..8...0.0.0.10f..2..4..2..0.8..4f.6.6..8..10..4",
+    39: "..2..0.0.10f..2.10..4...4.0..0f.2.6.6...2..4.8...0",
+    40: "0..0f.2.10..4..10..0.8.2f..2.6...2.10..4...4.0.8.6f.",
+    41: "2.6...2..0.8..8f.2.6..4..10..4..10..0.8.2f..2.6..8.",
+    42: ".10..4..0f.2.6.10...10..4.8...0.8..8f.2.6..4..10..4.",
+    43: "..4f.6.6...2.10..8...0.0.8.6f..6.10...10..4.8..4f.6.6",
+    44: ".6...2..4..2..0.0.10f..2.6..8..10..8..4f.6.6.6...2",
+    45: "10..4...4.0..0f.2.10..4..10..4.8..4f.6.6...2.10..4..10",
+    46: "..0.8.2f..2.6...2..0.8..4f.6.6.6...2..4..2..0.8..",
+    47: "8f.2.6..4..10..4..0f.2.6.6...2.10..4...4.0..0f.2.6.",
+  };
   let adjust = function (tile) {
     let ps = Flatland.getPoints(tile);
     let c = Flatland.getCentroid([ps[0], ps[4], ps[8]]);
@@ -360,20 +396,27 @@ function initialHats() {
   };
 
   let tiles = [];
-  for (let h of hats) {
-    let tile = {
-      x: 0,
-      y: 0,
-      angle: h.angle,
-      flip: h.flip,
-      k: Math.PI/3,
-    };
-    tile = adjust(tile);
-    tile.x += (h.x * Math.sqrt(3)/2 - ((h.y + h.x + 1) % 2) * 0.25);
-    tile.y -= h.y * 0.5;
-    tile.x -= 4;
-    tile.y += 4;
-    tiles.push(tile);
+  for (let col in hats) {
+    let s = hats[col];
+    let hx = parseInt(col);
+    let hy = 0;
+    for (let i = 0; i < s.length; ++i) {
+      if (s[i] == '.') {
+        // do nothing
+      } else {
+        let angle = parseInt(s.substr(i));
+        while (i < s.length && s[i] != '.') ++i;
+        let flip = (s[i-1] == 'f');
+        let tile = adjust({ x: 0, y: 0, angle: angle, flip: flip, k: Math.PI/3 });
+        tile.x += (hx * Math.sqrt(3)/2 - ((hy + hx + 1) % 2) * 0.25);
+        tile.y -= hy * 0.5;
+        tile.x -= 21.042;
+        tile.y += 11;
+        tiles.push(tile);
+        ++hy;
+      }
+      hy += 1;
+    }
   }
   return tiles;
 }
@@ -387,11 +430,16 @@ window.onload = function () {
   let singleBottomCanvas = window.document.getElementById("singleBottomView");
   let singleBottomCtx = singleBottomCanvas.getContext('2d');
 
-  let escherView = new Flatland.View(escherCanvas, 10);
+  let escherView = new Flatland.View(escherCanvas, 22);
   let singleTopView = new Flatland.View(singleTopCanvas, 2);
   let singleBottomView = new Flatland.View(singleBottomCanvas, 2);
   let fixedTiles = initialHats();
-  let snapTogether = false;
+  let snapTogether = true;
+  let showGrid = false;
+  let showFlips = false;
+  let showNumCells = 22;
+
+  Flatland.cornerStructure.memorizeCorners(fixedTiles);
 
   let tile = {
     x: 0,
@@ -402,32 +450,56 @@ window.onload = function () {
   };
   let topk = Math.PI/3;
   let bottomk = Math.PI/3;
-  let activeMode = 'escher';
   tile.k = escherView.recomputeTileK(tile, bottomk, topk);
 
   singleTopCanvas.onclick = function (e) {
-    activeMode = 'top';
+    singleBottomCanvas.dataset.active = (singleTopCanvas.dataset.active != "true") ? "true" : "false";
+    singleTopCanvas.dataset.active = "true";
   };
   singleBottomCanvas.onclick = function (e) {
-    activeMode = 'bottom';
-  };
-  escherCanvas.onclick = function (e) {
-    activeMode = 'escher';
+    singleTopCanvas.dataset.active = (singleBottomCanvas.dataset.active != "true") ? "true" : "false";
+    singleBottomCanvas.dataset.active = "true";
   };
 
   window.document.onkeydown = function (e) {
+    console.log("onkeydown");
+    let kChanged = false;
+    let kStep = Math.PI / 240;
     if (e.key == 'q') { // turn left
       tile.angle = (tile.angle + 11) % 12;
     } else if (e.key == 'w') { // turn right
       tile.angle = (tile.angle + 1) % 12;
-    } else if (e.key == 's' && activeMode == 'top') { // morph
-      topk = Math.min(topk + Math.PI / 120, Math.PI / 2);
-    } else if (e.key == 's' && activeMode == 'bottom') { // morph
-      bottomk = Math.min(bottomk + Math.PI / 120, Math.PI / 2);
-    } else if (e.key == 'a' && activeMode == 'top') { // morph back
-      topk = Math.max(topk - Math.PI / 120, 0);
-    } else if (e.key == 'a' && activeMode == 'bottom') { // morph back
-      bottomk = Math.max(bottomk - Math.PI / 120, 0);
+    } else if (e.key == 's') { // morph
+      if (singleTopCanvas.dataset.active == "true") {
+        topk = Math.min(topk + kStep, Math.PI / 2);
+      }
+      if (singleBottomCanvas.dataset.active == "true") {
+        bottomk = Math.min(bottomk + kStep, Math.PI / 2);
+      }
+      kChanged = true;
+    } else if (e.key == 'a') { // morph back
+      if (singleTopCanvas.dataset.active == "true") {
+        topk = Math.max(topk - kStep, 0);
+      }
+      if (singleBottomCanvas.dataset.active == "true") {
+        bottomk = Math.max(bottomk - kStep, 0);
+      }
+      kChanged = true;
+    } else if (e.key == '!') { // snap together
+      snapTogether = !snapTogether;
+      console.log("snapTogether is now", snapTogether);
+    } else if (e.key == '+') {
+      showNumCells = Math.max(showNumCells - 1, 5);
+      kChanged = true;
+    } else if (e.key == '-') {
+      showNumCells = Math.min(showNumCells + 1, 50);
+      kChanged = true;
+    } else if (e.key == '#') {
+      showGrid = !showGrid;
+    } else if (e.key == 'f') {
+      showFlips = !showFlips;
+    } else if (true) {
+      // Don't do any of the rest of these things anymore.
     } else if (e.key == 'f') { // flip
       tile.flip = !tile.flip;
     } else if (e.keyCode == 37) { // left
@@ -448,6 +520,7 @@ window.onload = function () {
     } else if (e.key == ' ' || e.keyCode == 13) { // commit
       fixedTiles.push(tile);
       console.log(fixedTiles);
+      Flatland.cornerStructure.memorizeCorners(fixedTiles);
       tile = {
         x: tile.x,
         y: tile.y,
@@ -455,15 +528,26 @@ window.onload = function () {
         angle: tile.angle,
         flip: tile.flip,
       };
-    } else if (e.key == '!') { // snap together
-      recomputeFixedPoints(fixedTiles);
-      snapTogether = !snapTogether;
     } else {
       console.log("keydown:", e.key, e.keyCode);
     }
     tile.k = escherView.recomputeTileK(tile, bottomk, topk);
-    for (let t of fixedTiles) {
-      t.k = escherView.recomputeTileK(t, bottomk, topk);
+    if (kChanged) {
+      kChanged = false;
+      console.log("Working...");
+      for (let t of fixedTiles) {
+        t.k = escherView.recomputeTileK(t, bottomk, topk);
+      }
+      for (let t = 0; t < 4; ++t) {
+        for (let i = 0; i < fixedTiles.length; ++i) {
+          fixedTiles[i].points = Flatland.getPoints(fixedTiles[i]);
+        }
+        for (let i = 0; i < fixedTiles.length; ++i) {
+          let adjust = Flatland.jiggleFixedTile(fixedTiles, i);
+          fixedTiles[i].x += adjust.x;
+          fixedTiles[i].y += adjust.y;
+        }
+      }
     }
   };
 
@@ -472,16 +556,26 @@ window.onload = function () {
     escherView.clear();
     singleTopView.clear();
     singleBottomView.clear();
+    escherView.setUnitCells(showNumCells);
     for (let i = 0; i < fixedTiles.length; ++i) {
-      escherView.drawFixedShape(fixedTiles[i], snapTogether);
+      // Compute the points just once, because drawFixedShape will use them a lot.
+      fixedTiles[i].points = Flatland.getPoints(fixedTiles[i]);
     }
-    escherView.drawLine({x:-Math.sqrt(3)/2, y:-100}, {x:-Math.sqrt(3)/2, y:100}, 0.2);
-    escherView.drawLine({x:0, y:-100}, {x:0, y:100}, 0.2);
-    escherView.drawLine({x:Math.sqrt(3)/2, y:-100}, {x:Math.sqrt(3)/2, y:100}, 0.2);
-    escherView.drawLine({x:-10, y:-1}, {x:100, y:-1}, 0.2);
-    escherView.drawLine({x:-10, y:0}, {x:100, y:0}, 0.2);
-    escherView.drawLine({x:-10, y:1}, {x:100, y:1}, 0.2);
-//    escherView.drawActiveShape(tile);
+    for (let i = 0; i < fixedTiles.length; ++i) {
+      let weight = (showFlips && fixedTiles[i].flip) ? 3 : 1;
+      escherView.drawFixedShape(fixedTiles, i, snapTogether, weight);
+    }
+    if (showGrid) {
+      const dx = 0;
+      const dy = 0;
+      for (let i = -escherView.unitCells; i < escherView.unitCells; ++i) {
+        escherView.drawLine({ x: dx + i*Math.sqrt(3)/2, y: dy + -100 }, { x: dx + i*Math.sqrt(3)/2, y: dy + 100 }, 0.2);
+        escherView.drawLine({ x: dx + -100*Math.sqrt(3)/2, y: dy + i-50 }, { x: dx + 100*Math.sqrt(3)/2, y: dy + i+50 }, 0.2);
+        escherView.drawLine({ x: dx + -100*Math.sqrt(3)/2, y: dy + i+50 }, { x: dx + 100*Math.sqrt(3)/2, y: dy + i-50 }, 0.2);
+      }
+    }
+
+    // escherView.drawActiveShape(tile);
     singleTopView.drawActiveShape({x: 0, y: 0, k: topk, angle: tile.angle, flip: false});
     singleTopView.drawCentroidPoint({x: 0, y: 0, k: topk, angle: tile.angle, flip: false});
     singleBottomView.drawActiveShape({x: 0, y: 0, k: bottomk, angle: tile.angle, flip: false});
