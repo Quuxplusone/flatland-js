@@ -1,6 +1,4 @@
 
-let CLOSENESS = 10;
-
 var Flatland = {};
 
 Flatland.getDistance = function (p1, p2) {
@@ -28,14 +26,19 @@ let recomputeFixedPoints = function (fixedTiles) {
       allpoints.push(points[j]);
     }
   }
-  // Now group the points that differ by less than 3*CLOSENESS.
+  // Now group the points that are close together.
   let groups = [];
   for (let i = 0; i < allpoints.length; ++i) {
     let done = false;
     for (let j = 0; j < groups.length; ++j) {
-      if (Flatland.getDistance(allpoints[i], groups[j][0]) < 3*CLOSENESS) {
-        groups[j].push(allpoints[i]);
-        done = true;
+      for (let k = 0; k < groups[j].length; ++k) {
+        if (Flatland.getDistance(allpoints[i], groups[j][k]) < 0.1) {
+          groups[j].push(allpoints[i]);
+          done = true;
+          break;
+        }
+      }
+      if (done) {
         break;
       }
     }
@@ -180,7 +183,7 @@ Flatland.rotate = function (p, theta) {
 };
 
 Flatland.getPoints = function (shape) {
-  // Return a shape with a constant area 100.
+  // Return a shape with a constant area 8/3 of a triangle-with-unit-base, i.e. ~1.1547005383792515.
   let a = 100 * Math.cos(shape.k);
   let b = 100 * Math.sin(shape.k);
   let dist = function (p, q) {
@@ -219,16 +222,18 @@ Flatland.getPoints = function (shape) {
     p = ret[ret.length-1];
     ret.push({ x: p.x + sc * v.x, y: p.y + sc * v.y });
   }
-  for (let j = 0; j < ret.length; ++j) {
-    if (shape.flip) {
-      ret[j].x = -ret[j].x;
-    }
-    ret[j] = Flatland.rotate(ret[j], shape.angle * Math.PI / 6);
-  }
-  let scalefactor = Math.sqrt(1.0 / Flatland.getArea(ret));
+  let scalefactor = Math.sqrt(1.1547005383792515 / Flatland.getArea(ret));
   for (let j = 0; j < ret.length; ++j) {
     ret[j].x *= scalefactor;
     ret[j].y *= scalefactor;
+  }
+  for (let j = 0; j < ret.length; ++j) {
+    if (!shape.flip) {
+      ret[j].x = -ret[j].x;
+      ret[j] = Flatland.rotate(ret[j], (shape.angle - 4) * Math.PI / 6);
+    } else {
+      ret[j] = Flatland.rotate(ret[j], (shape.angle + 4) * Math.PI / 6);
+    }
   }
   let c = Flatland.getCentroid(ret);
   for (let j = 0; j < ret.length; ++j) {
@@ -264,7 +269,7 @@ Flatland.jiggleIntoPlace = function (fixedTiles, tile) {
     console.assert(p1.length == p2.length);
     for (let j = 0; j < p1.length; ++j) {
       for (let k = 0; k < p2.length; ++k) {
-        if (Math.hypot(p2[k].x - p1[j].x, p2[k].y - p1[j].y) < CLOSENESS) {
+        if (Math.hypot(p2[k].x - p1[j].x, p2[k].y - p1[j].y) < 0.1) {
           adjustX += (p2[k].x - p1[j].x);
           adjustY += (p2[k].y - p1[j].y);
           adjustN += 1;
@@ -283,7 +288,7 @@ Flatland.jiggleIntoPlace = function (fixedTiles, tile) {
 
 function initialHats() {
   let hats = [
-    { x:  0, y:  0, angle:  8, flip: true },
+    { x:  0, y:  0, angle:  6, flip: true },
     { x:  0, y:  3, angle:  6, flip: false },
     { x:  0, y:  5, angle: 10, flip: false },
     { x:  0, y:  9, angle:  2, flip: false },
@@ -292,6 +297,59 @@ function initialHats() {
     { x:  1, y:  1, angle:  8, flip: false },
     { x:  1, y:  4, angle: 10, flip: false },
     { x:  1, y:  7, angle:  0, flip: false },
+    { x:  1, y: 10, angle:  0, flip: true },
+    { x:  1, y: 12, angle:  2, flip: false },
+    { x:  2, y:  0, angle:  4, flip: false },
+    { x:  2, y:  2, angle:  8, flip: false },
+    { x:  2, y:  5, angle:  8, flip: true },
+    { x:  2, y:  7, angle:  2, flip: false },
+    { x:  2, y:  9, angle:  6, flip: false },
+    { x:  2, y: 13, angle:  2, flip: false },
+    { x:  3, y:  0, angle:  6, flip: false },
+    { x:  3, y:  2, angle:  6, flip: false },
+    { x:  3, y:  4, angle: 10, flip: false },
+    { x:  3, y:  8, angle: 10, flip: false },
+    { x:  3, y: 11, angle:  4, flip: false },
+    { x:  4, y:  1, angle:  2, flip: false },
+    { x:  4, y:  1, angle:  2, flip: false },
+    { x:  4, y:  3, angle: 10, flip: false },
+    { x:  4, y:  6, angle:  8, flip: false },
+    { x:  4, y: 10, angle:  0, flip: false },
+    { x:  4, y: 12, angle:  0, flip: false },
+    { x:  5, y:  2, angle: 10, flip: false },
+    { x:  5, y:  5, angle:  0, flip: false },
+    { x:  5, y:  7, angle:  0, flip: false },
+    { x:  5, y:  9, angle: 10, flip: true },
+    { x:  5, y: 12, angle:  2, flip: false },
+    { x:  5, y: 14, angle:  6, flip: false },
+    { x:  6, y:  0, angle:  8, flip: false },
+    { x:  6, y:  3, angle:  8, flip: true },
+    { x:  6, y:  5, angle:  2, flip: false },
+    { x:  6, y:  7, angle: 10, flip: false },
+    { x:  6, y: 10, angle:  4, flip: false },
+    { x:  6, y: 13, angle: 10, flip: false },
+    { x:  7, y:  0, angle:  6, flip: false },
+    { x:  7, y:  2, angle: 10, flip: false },
+    { x:  7, y:  6, angle:  2, flip: false },
+    { x:  7, y:  9, angle:  0, flip: false },
+    { x:  7, y: 11, angle:  8, flip: false },
+    { x:  7, y: 14, angle:  4, flip: true },
+    { x:  8, y:  1, angle: 10, flip: false },
+    { x:  8, y:  4, angle:  0, flip: false },
+    { x:  8, y:  7, angle:  0, flip: true },
+    { x:  8, y:  9, angle:  2, flip: false },
+    { x:  8, y: 11, angle:  6, flip: false },
+    { x:  8, y: 13, angle:  6, flip: false },
+    { x:  9, y:  2, angle:  8, flip: true },
+    { x:  9, y:  4, angle:  2, flip: false },
+    { x:  9, y:  6, angle:  6, flip: false },
+    { x:  9, y: 10, angle:  2, flip: false },
+    { x:  9, y: 12, angle: 10, flip: false },
+    { x: 10, y:  1, angle: 10, flip: false },
+    { x: 10, y:  5, angle: 10, flip: false },
+    { x: 10, y:  8, angle:  4, flip: false },
+    { x: 10, y: 11, angle: 10, flip: false },
+    { x: 10, y: 14, angle:  0, flip: false },
   ];
   let adjust = function (tile) {
     let ps = Flatland.getPoints(tile);
@@ -303,18 +361,19 @@ function initialHats() {
 
   let tiles = [];
   for (let h of hats) {
-    h.x = h.x + 1;
-    h.y = 8 - h.y;
     let tile = {
       x: 0,
       y: 0,
-      angle: (!h.flip ? (h.angle + 8) : (h.angle + 4)) % 12,
-      flip: !h.flip,
-      k: 1,
+      angle: h.angle,
+      flip: h.flip,
+      k: Math.PI/3,
     };
     tile = adjust(tile);
-    tile.x += 100*(h.x * Math.sqrt(3) - ((h.y + h.x) % 2) * 0.5);
-    tile.y += 100*h.y;
+    tile.x += (h.x * Math.sqrt(3)/2 - ((h.y + h.x + 1) % 2) * 0.25);
+    tile.y -= h.y * 0.5;
+    tile.x -= 4;
+    tile.y += 4;
+    tiles.push(tile);
   }
   return tiles;
 }
@@ -341,8 +400,8 @@ window.onload = function () {
     angle: 0,
     flip: false,
   };
-  let topk = 0;
-  let bottomk = Math.PI/2;
+  let topk = Math.PI/3;
+  let bottomk = Math.PI/3;
   let activeMode = 'escher';
   tile.k = escherView.recomputeTileK(tile, bottomk, topk);
 
@@ -396,13 +455,16 @@ window.onload = function () {
         angle: tile.angle,
         flip: tile.flip,
       };
-      recomputeFixedPoints(fixedTiles);
     } else if (e.key == '!') { // snap together
+      recomputeFixedPoints(fixedTiles);
       snapTogether = !snapTogether;
     } else {
       console.log("keydown:", e.key, e.keyCode);
     }
     tile.k = escherView.recomputeTileK(tile, bottomk, topk);
+    for (let t of fixedTiles) {
+      t.k = escherView.recomputeTileK(t, bottomk, topk);
+    }
   };
 
   let timeStep = function () {
@@ -413,13 +475,13 @@ window.onload = function () {
     for (let i = 0; i < fixedTiles.length; ++i) {
       escherView.drawFixedShape(fixedTiles[i], snapTogether);
     }
-    escherView.drawLine({x:-1, y:-10}, {x:-1, y:10}, 0.2);
-    escherView.drawLine({x:0, y:-10}, {x:0, y:10}, 0.2);
-    escherView.drawLine({x:1, y:-10}, {x:1, y:10}, 0.2);
-    escherView.drawLine({x:-10, y:-1}, {x:10, y:-1}, 0.2);
-    escherView.drawLine({x:-10, y:0}, {x:10, y:0}, 0.2);
-    escherView.drawLine({x:-10, y:1}, {x:10, y:1}, 0.2);
-    escherView.drawActiveShape(tile);
+    escherView.drawLine({x:-Math.sqrt(3)/2, y:-100}, {x:-Math.sqrt(3)/2, y:100}, 0.2);
+    escherView.drawLine({x:0, y:-100}, {x:0, y:100}, 0.2);
+    escherView.drawLine({x:Math.sqrt(3)/2, y:-100}, {x:Math.sqrt(3)/2, y:100}, 0.2);
+    escherView.drawLine({x:-10, y:-1}, {x:100, y:-1}, 0.2);
+    escherView.drawLine({x:-10, y:0}, {x:100, y:0}, 0.2);
+    escherView.drawLine({x:-10, y:1}, {x:100, y:1}, 0.2);
+//    escherView.drawActiveShape(tile);
     singleTopView.drawActiveShape({x: 0, y: 0, k: topk, angle: tile.angle, flip: false});
     singleTopView.drawCentroidPoint({x: 0, y: 0, k: topk, angle: tile.angle, flip: false});
     singleBottomView.drawActiveShape({x: 0, y: 0, k: bottomk, angle: tile.angle, flip: false});
