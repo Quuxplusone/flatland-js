@@ -57,6 +57,15 @@ let recomputeFixedPoints = function (fixedTiles) {
   }
 };
 
+Flatland.getArea = function (ps) {
+  let a = 0;
+  for (let i = 0; i < ps.length; ++i) {
+    let j = (i+1) % ps.length;
+    a += ps[i].x * ps[j].y - ps[i].y * ps[j].x;
+  }
+  return a / 2;
+};
+
 Flatland.getCentroid = function (ps) {
   if (ps.length == 2) {
     return {
@@ -82,14 +91,17 @@ Flatland.getCentroid = function (ps) {
   };
 };
 
-Flatland.View = function (canvas) {
+Flatland.View = function (canvas, unitCells) {
     this.canvas = canvas;
     this.ctx = canvas.getContext('2d');
+    this.scale = this.canvas.height / unitCells;
+    this.unitCells = unitCells;
 };
 
 Flatland.View.prototype.recomputeTileK = function (tile, bottomk, topk) {
+  let unitCells = this.unitCells;
   let kFromY = function (y) {
-    let ypos = (y + 420) / (420+250);
+    let ypos = (y * 1.5 / unitCells) + 0.5;
     ypos = Math.min(Math.max(0.0, ypos), 1.0);
     return (bottomk * ypos) + (topk * (1-ypos));
   };
@@ -123,11 +135,10 @@ Flatland.View.prototype.drawFixedShape = function (shape, snapTogether) {
 };
 
 Flatland.View.prototype.drawLine = function (start, end, width) {
-    let pixelsPerMeter = Math.max(this.canvas.width, this.canvas.height) / 1000;
-    let x1 = pixelsPerMeter * start.x + (this.canvas.width / 2);
-    let y1 = pixelsPerMeter * start.y + (this.canvas.height / 2);
-    let x2 = pixelsPerMeter * end.x + (this.canvas.width / 2);
-    let y2 = pixelsPerMeter * end.y + (this.canvas.height / 2);
+    let x1 = this.scale * start.x + (this.canvas.width / 2);
+    let y1 = this.scale * start.y + (this.canvas.height / 2);
+    let x2 = this.scale * end.x + (this.canvas.width / 2);
+    let y2 = this.scale * end.y + (this.canvas.height / 2);
     this.ctx.lineWidth = width;
     this.ctx.beginPath();
     this.ctx.moveTo(x1, y1);
@@ -169,57 +180,62 @@ Flatland.rotate = function (p, theta) {
 };
 
 Flatland.getPoints = function (shape) {
-      let a = 100 * Math.cos(shape.k);
-      let b = 100 * Math.sin(shape.k);
-      let dist = function (p, q) {
-        return Math.sqrt( Math.pow((p[0] - q[0]), 2) + Math.pow((p[1] - q[1]), 2) );
-      };
-      const hr3 = 0.5 * Math.sqrt(3.0);
-      const base_shape = [
-        [0, 0],
-        [0, -hr3],
-        [0.5, -hr3],
-        [0.75, -0.5*hr3],
-        [1.5, -hr3],
-        [2.25, -0.5*hr3],
-        [2, 0],
-        [2.25, 0.5*hr3],
-        [1.5, hr3],
-        [1.5, 2*hr3],
-        [1, 2*hr3],
-        [0.5, hr3],
-        [0.75, 0.5*hr3],
-      ];
-      const sc1 = 2 * a;
-      const sc2 = 2 * b * Math.sqrt(3) / 3;
-      let ret = [
-        {x: 0, y: 0}
-      ];
-      for (let j = 0; j < base_shape.length - 1; ++j) {
-        let i = j + 1;
-        let d = dist(base_shape[i-1], base_shape[i]);
-        // Side lengths alternate
-        let sc = (Math.abs(d - hr3) < 1e-5) ? sc2 : sc1;
-        let v = {
-          x: base_shape[i][0] - base_shape[i-1][0],
-          y: base_shape[i][1] - base_shape[i-1][1]
-        };
-        p = ret[ret.length-1];
-        ret.push({ x: p.x + sc * v.x, y: p.y + sc * v.y });
-      }
-      
-      for (let j = 0; j < ret.length; ++j) {
-        if (shape.flip) {
-            ret[j].x = -ret[j].x;
-        }
-        ret[j] = Flatland.rotate(ret[j], shape.angle);
-      }
-      let c = Flatland.getCentroid(ret);
-      for (let j = 0; j < ret.length; ++j) {
-        ret[j].x += shape.x - c.x;
-        ret[j].y += shape.y - c.y;
-      }
-      return ret;
+  // Return a shape with a constant area 100.
+  let a = 100 * Math.cos(shape.k);
+  let b = 100 * Math.sin(shape.k);
+  let dist = function (p, q) {
+    return Math.sqrt( Math.pow((p[0] - q[0]), 2) + Math.pow((p[1] - q[1]), 2) );
+  };
+  const hr3 = 0.5 * Math.sqrt(3.0);
+  const base_shape = [
+    [0, 0],
+    [0, -hr3],
+    [0.5, -hr3],
+    [0.75, -0.5*hr3],
+    [1.5, -hr3],
+    [2.25, -0.5*hr3],
+    [2, 0],
+    [2.25, 0.5*hr3],
+    [1.5, hr3],
+    [1.5, 2*hr3],
+    [1, 2*hr3],
+    [0.5, hr3],
+    [0.75, 0.5*hr3],
+  ];
+  const sc1 = 2 * a;
+  const sc2 = 2 * b * Math.sqrt(3) / 3;
+  let ret = [
+    {x: 0, y: 0}
+  ];
+  for (let j = 0; j < base_shape.length - 1; ++j) {
+    let i = j + 1;
+    let d = dist(base_shape[i-1], base_shape[i]);
+    // Side lengths alternate
+    let sc = (Math.abs(d - hr3) < 1e-5) ? sc2 : sc1;
+    let v = {
+      x: base_shape[i][0] - base_shape[i-1][0],
+      y: base_shape[i][1] - base_shape[i-1][1]
+    };
+    p = ret[ret.length-1];
+    ret.push({ x: p.x + sc * v.x, y: p.y + sc * v.y });
+  }
+  for (let j = 0; j < ret.length; ++j) {
+    if (shape.flip) {
+      ret[j].x = -ret[j].x;
+    }
+    ret[j] = Flatland.rotate(ret[j], shape.angle * Math.PI / 6);
+  }
+  let scalefactor = Math.sqrt(1.0 / Flatland.getArea(ret));
+  for (let j = 0; j < ret.length; ++j) {
+    ret[j].x *= scalefactor;
+    ret[j].y *= scalefactor;
+  }
+  let c = Flatland.getCentroid(ret);
+  for (let j = 0; j < ret.length; ++j) {
+    ret[j].x += shape.x - c.x;
+    ret[j].y += shape.y - c.y;
+  }
+  return ret;
 };
 
 Flatland.getLineSegments = function (shape) {
@@ -265,6 +281,45 @@ Flatland.jiggleIntoPlace = function (fixedTiles, tile) {
   };
 };
 
+function initialHats() {
+  let hats = [
+    { x:  0, y:  0, angle:  8, flip: true },
+    { x:  0, y:  3, angle:  6, flip: false },
+    { x:  0, y:  5, angle: 10, flip: false },
+    { x:  0, y:  9, angle:  2, flip: false },
+    { x:  0, y: 12, angle:  0, flip: false },
+    { x:  0, y: 14, angle:  8, flip: false },
+    { x:  1, y:  1, angle:  8, flip: false },
+    { x:  1, y:  4, angle: 10, flip: false },
+    { x:  1, y:  7, angle:  0, flip: false },
+  ];
+  let adjust = function (tile) {
+    let ps = Flatland.getPoints(tile);
+    let c = Flatland.getCentroid([ps[0], ps[4], ps[8]]);
+    tile.x = -c.x;
+    tile.y = -c.y;
+    return tile;
+  };
+
+  let tiles = [];
+  for (let h of hats) {
+    h.x = h.x + 1;
+    h.y = 8 - h.y;
+    let tile = {
+      x: 0,
+      y: 0,
+      angle: (!h.flip ? (h.angle + 8) : (h.angle + 4)) % 12,
+      flip: !h.flip,
+      k: 1,
+    };
+    tile = adjust(tile);
+    tile.x += 100*(h.x * Math.sqrt(3) - ((h.y + h.x) % 2) * 0.5);
+    tile.y += 100*h.y;
+  }
+  return tiles;
+}
+
+
 window.onload = function () {
   let escherCanvas = window.document.getElementById("escherView");
   let escherCtx = escherCanvas.getContext('2d');
@@ -273,22 +328,23 @@ window.onload = function () {
   let singleBottomCanvas = window.document.getElementById("singleBottomView");
   let singleBottomCtx = singleBottomCanvas.getContext('2d');
 
-  let escherView = new Flatland.View(escherCanvas);
-  let singleTopView = new Flatland.View(singleTopCanvas);
-  let singleBottomView = new Flatland.View(singleBottomCanvas);
-  let fixedTiles = [];
+  let escherView = new Flatland.View(escherCanvas, 10);
+  let singleTopView = new Flatland.View(singleTopCanvas, 2);
+  let singleBottomView = new Flatland.View(singleBottomCanvas, 2);
+  let fixedTiles = initialHats();
   let snapTogether = false;
 
   let tile = {
     x: 0,
     y: 0,
-    k: 0,
-    angle: 0.0,
+    k: 1,
+    angle: 0,
     flip: false,
   };
   let topk = 0;
-  let bottomk = 0;
-  tile.k = escherView.recomputeTileK(tile, topk, bottomk);
+  let bottomk = Math.PI/2;
+  let activeMode = 'escher';
+  tile.k = escherView.recomputeTileK(tile, bottomk, topk);
 
   singleTopCanvas.onclick = function (e) {
     activeMode = 'top';
@@ -302,9 +358,9 @@ window.onload = function () {
 
   window.document.onkeydown = function (e) {
     if (e.key == 'q') { // turn left
-      tile.angle -= Math.PI / 6;
+      tile.angle = (tile.angle + 11) % 12;
     } else if (e.key == 'w') { // turn right
-      tile.angle += Math.PI / 6;
+      tile.angle = (tile.angle + 1) % 12;
     } else if (e.key == 's' && activeMode == 'top') { // morph
       topk = Math.min(topk + Math.PI / 120, Math.PI / 2);
     } else if (e.key == 's' && activeMode == 'bottom') { // morph
@@ -316,13 +372,13 @@ window.onload = function () {
     } else if (e.key == 'f') { // flip
       tile.flip = !tile.flip;
     } else if (e.keyCode == 37) { // left
-      tile.x -= 10;
+      tile.x -= 0.1;
     } else if (e.keyCode == 39) { // right
-      tile.x += 10;
+      tile.x += 0.1;
     } else if (e.keyCode == 38) { // up
-      tile.y -= 10;
+      tile.y -= 0.1;
     } else if (e.keyCode == 40) { // down
-      tile.y += 10;
+      tile.y += 0.1;
     } else if (e.key == 'j') { // jiggle
       // Angle is always exact. Only x and y need to be jiggled.
       let adjust = Flatland.jiggleIntoPlace(fixedTiles, tile);
@@ -346,9 +402,7 @@ window.onload = function () {
     } else {
       console.log("keydown:", e.key, e.keyCode);
     }
-    if (activeMode == 'escher') {
-      tile.k = escherView.recomputeTileK(tile, bottomk, topk);
-    }
+    tile.k = escherView.recomputeTileK(tile, bottomk, topk);
   };
 
   let timeStep = function () {
@@ -359,11 +413,17 @@ window.onload = function () {
     for (let i = 0; i < fixedTiles.length; ++i) {
       escherView.drawFixedShape(fixedTiles[i], snapTogether);
     }
+    escherView.drawLine({x:-1, y:-10}, {x:-1, y:10}, 0.2);
+    escherView.drawLine({x:0, y:-10}, {x:0, y:10}, 0.2);
+    escherView.drawLine({x:1, y:-10}, {x:1, y:10}, 0.2);
+    escherView.drawLine({x:-10, y:-1}, {x:10, y:-1}, 0.2);
+    escherView.drawLine({x:-10, y:0}, {x:10, y:0}, 0.2);
+    escherView.drawLine({x:-10, y:1}, {x:10, y:1}, 0.2);
     escherView.drawActiveShape(tile);
-    singleTopView.drawActiveShape({x: 0, y: 0, k: topk, angle: 0, flip: false});
-    singleTopView.drawCentroidPoint({x: 0, y: 0, k: topk, angle: 0, flip: false});
-    singleBottomView.drawActiveShape({x: 0, y: 0, k: bottomk, angle: 0, flip: false});
-    singleBottomView.drawCentroidPoint({x: 0, y: 0, k: bottomk, angle: 0, flip: false});
+    singleTopView.drawActiveShape({x: 0, y: 0, k: topk, angle: tile.angle, flip: false});
+    singleTopView.drawCentroidPoint({x: 0, y: 0, k: topk, angle: tile.angle, flip: false});
+    singleBottomView.drawActiveShape({x: 0, y: 0, k: bottomk, angle: tile.angle, flip: false});
+    singleBottomView.drawCentroidPoint({x: 0, y: 0, k: bottomk, angle: tile.angle, flip: false});
   };
   window.setInterval(timeStep, 100);
 };
