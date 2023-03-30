@@ -33,7 +33,6 @@ Flatland.cornerStructure = {
   },
 
   memorizeCorners: function (fixedTiles) {
-    console.log("memorizeCorners");
     let allpoints = [];
     for (let i = 0; i < fixedTiles.length; ++i) {
       let pts = Flatland.getPoints(fixedTiles[i]);
@@ -56,7 +55,7 @@ Flatland.cornerStructure = {
         // They should all have the same group identifier.
         let foundId = 0;
         for (let p2 of allpoints) {
-          if (p !== p2 && Flatland.getDistance(p, p2) < 0.1) {
+          if (p !== p2 && p.i != p2.i && Flatland.getSquaredDistance(p, p2) < 0.01) {
             let id2 = this.A[p2.i][p2.j];
             if (id2 !== 0) {
               console.assert(foundId == 0 || foundId == id2);
@@ -72,8 +71,13 @@ Flatland.cornerStructure = {
         this.D[foundId].push({ i: p.i, j: p.j });
       }
     }
-    console.log(this);
   },
+};
+
+Flatland.getSquaredDistance = function (p1, p2) {
+  let dx = (p2.x - p1.x);
+  let dy = (p2.y - p1.y);
+  return dx*dx + dy*dy;
 };
 
 Flatland.getDistance = function (p1, p2) {
@@ -114,29 +118,34 @@ Flatland.getCentroid = function (ps) {
   };
 };
 
-Flatland.View = function (canvas, unitCells) {
+Flatland.View = function (canvas, unitCells, leftToRight) {
   this.canvas = canvas;
   this.ctx = canvas.getContext('2d');
-  this.scale = this.canvas.height / unitCells;
-  this.unitCells = unitCells;
+  this.setUnitCells(unitCells, leftToRight);
 };
 
-Flatland.View.prototype.setUnitCells = function (unitCells) {
-  this.scale = this.canvas.height / unitCells;
+Flatland.View.prototype.setUnitCells = function (unitCells, leftToRight) {
+  this.leftToRight = leftToRight;
   this.unitCells = unitCells;
+  if (leftToRight) {
+    this.scale = this.canvas.width / unitCells;
+  } else {
+    this.scale = this.canvas.height / unitCells;
+  }
 };
 
 Flatland.View.prototype.recomputeTileK = function (tile, bottomk, topk) {
   let unitCells = this.unitCells;
-  let kFromY = function (y) {
-    let ypos = (y * 1.5 / unitCells) + 0.5;
-    ypos = Math.min(Math.max(0.0, ypos), 1.0);
-    return (bottomk * ypos) + (topk * (1-ypos));
+  let leftToRight = this.leftToRight;
+  let kFromPoint = function (p) {
+    let x = (leftToRight ? p.x * 1.2 : p.y * 1.5);
+    let xpos = (x / unitCells) + 0.5;
+    xpos = Math.min(Math.max(0.0, xpos), 1.0);
+    return (bottomk * xpos) + (topk * (1-xpos));
   };
-  tile.k = kFromY(tile.y);
-  tile.k = kFromY(Flatland.getCentroid(Flatland.getPoints(tile)).y);
-  tile.k = kFromY(Flatland.getCentroid(Flatland.getPoints(tile)).y);
-  tile.k = kFromY(Flatland.getCentroid(Flatland.getPoints(tile)).y);
+  tile.k = kFromPoint(tile);
+  tile.k = kFromPoint(Flatland.getCentroid(Flatland.getPoints(tile)));
+  tile.k = kFromPoint(Flatland.getCentroid(Flatland.getPoints(tile)));
   return tile.k;
 }
 
@@ -291,33 +300,6 @@ Flatland.getLineSegments = function (shape) {
   return lines;
 };
 
-Flatland.jiggleIntoPlace = function (fixedTiles, tile) {
-  let adjustX = 0.0;
-  let adjustY = 0.0;
-  let adjustN = 0;
-  const p1 = Flatland.getPoints(tile);
-  for (let i = 0; i < fixedTiles.length; ++i) {
-    let p2 = Flatland.getPoints(fixedTiles[i]);
-    console.assert(p1.length == p2.length);
-    for (let j = 0; j < p1.length; ++j) {
-      for (let k = 0; k < p2.length; ++k) {
-        if (Math.hypot(p2[k].x - p1[j].x, p2[k].y - p1[j].y) < 0.1) {
-          adjustX += (p2[k].x - p1[j].x);
-          adjustY += (p2[k].y - p1[j].y);
-          adjustN += 1;
-        }
-      }
-    }
-  }
-  if (adjustN == 0) {
-    return {x: 0, y: 0};
-  }
-  return {
-    x: adjustX / adjustN,
-    y: adjustY / adjustN,
-  };
-};
-
 Flatland.jiggleFixedTile = function (fixedTiles, i) {
   let adjustX = 0.0;
   let adjustY = 0.0;
@@ -438,19 +420,12 @@ window.onload = function () {
   let showGrid = false;
   let showFlips = false;
   let showNumCells = 22;
+  let leftToRight = false;
 
   Flatland.cornerStructure.memorizeCorners(fixedTiles);
 
-  let tile = {
-    x: 0,
-    y: 0,
-    k: 1,
-    angle: 0,
-    flip: false,
-  };
   let topk = Math.PI/3;
   let bottomk = Math.PI/3;
-  tile.k = escherView.recomputeTileK(tile, bottomk, topk);
 
   singleTopCanvas.onclick = function (e) {
     singleBottomCanvas.dataset.active = (singleTopCanvas.dataset.active != "true") ? "true" : "false";
@@ -462,7 +437,6 @@ window.onload = function () {
   };
 
   window.document.onkeydown = function (e) {
-    console.log("onkeydown");
     let kChanged = false;
     let kStep = Math.PI / 240;
     if (e.key == 'q') { // turn left
@@ -494,44 +468,14 @@ window.onload = function () {
     } else if (e.key == '-') {
       showNumCells = Math.min(showNumCells + 1, 50);
       kChanged = true;
+    } else if (e.key == 'v') {
+      leftToRight = !leftToRight;
+      kChanged = true;
     } else if (e.key == '#') {
       showGrid = !showGrid;
     } else if (e.key == 'f') {
       showFlips = !showFlips;
-    } else if (true) {
-      // Don't do any of the rest of these things anymore.
-    } else if (e.key == 'f') { // flip
-      tile.flip = !tile.flip;
-    } else if (e.keyCode == 37) { // left
-      tile.x -= 0.1;
-    } else if (e.keyCode == 39) { // right
-      tile.x += 0.1;
-    } else if (e.keyCode == 38) { // up
-      tile.y -= 0.1;
-    } else if (e.keyCode == 40) { // down
-      tile.y += 0.1;
-    } else if (e.key == 'j') { // jiggle
-      // Angle is always exact. Only x and y need to be jiggled.
-      let adjust = Flatland.jiggleIntoPlace(fixedTiles, tile);
-      console.log(tile);
-      tile.x += adjust.x;
-      tile.y += adjust.y;
-      console.log(tile);
-    } else if (e.key == ' ' || e.keyCode == 13) { // commit
-      fixedTiles.push(tile);
-      console.log(fixedTiles);
-      Flatland.cornerStructure.memorizeCorners(fixedTiles);
-      tile = {
-        x: tile.x,
-        y: tile.y,
-        k: tile.k,
-        angle: tile.angle,
-        flip: tile.flip,
-      };
-    } else {
-      console.log("keydown:", e.key, e.keyCode);
     }
-    tile.k = escherView.recomputeTileK(tile, bottomk, topk);
     if (kChanged) {
       kChanged = false;
       console.log("Working...");
@@ -556,7 +500,8 @@ window.onload = function () {
     escherView.clear();
     singleTopView.clear();
     singleBottomView.clear();
-    escherView.setUnitCells(showNumCells);
+    escherView.setUnitCells(showNumCells, leftToRight);
+
     for (let i = 0; i < fixedTiles.length; ++i) {
       // Compute the points just once, because drawFixedShape will use them a lot.
       fixedTiles[i].points = Flatland.getPoints(fixedTiles[i]);
@@ -575,11 +520,10 @@ window.onload = function () {
       }
     }
 
-    // escherView.drawActiveShape(tile);
-    singleTopView.drawActiveShape({x: 0, y: 0, k: topk, angle: tile.angle, flip: false});
-    singleTopView.drawCentroidPoint({x: 0, y: 0, k: topk, angle: tile.angle, flip: false});
-    singleBottomView.drawActiveShape({x: 0, y: 0, k: bottomk, angle: tile.angle, flip: false});
-    singleBottomView.drawCentroidPoint({x: 0, y: 0, k: bottomk, angle: tile.angle, flip: false});
+    singleTopView.drawActiveShape({x: 0, y: 0, k: topk, angle: 0, flip: false});
+    singleTopView.drawCentroidPoint({x: 0, y: 0, k: topk, angle: 0, flip: false});
+    singleBottomView.drawActiveShape({x: 0, y: 0, k: bottomk, angle: 0, flip: false});
+    singleBottomView.drawCentroidPoint({x: 0, y: 0, k: bottomk, angle: 0, flip: false});
   };
   window.setInterval(timeStep, 100);
 };
